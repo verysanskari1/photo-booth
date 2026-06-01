@@ -48,18 +48,16 @@ STYLE_PROMPT = (
     "expression. Recompose into a formal straight-on portrait: head facing "
     "forward, shoulders squared and level, chin level, centered, upright. "
     "Framed from "
-    "mid-chest up, with BOTH shoulders and the full upper chest completely "
-    "inside the frame and generous empty margin around the entire subject. Zoom "
-    "out so the figure sits small and centered; the head and both shoulders must "
-    "not touch or cross any edge of the image. Do not crop the shoulders, arms, "
-    "or head. Empty space below the shoulders. "
+    "mid-chest up, with both shoulders and the full upper chest comfortably "
+    "inside the frame and a small even margin around the subject so nothing "
+    "touches the edges. Do not crop the shoulders, arms, or head. "
     "Keep the person clearly recognizable. Rendered as a varied ASCII-dither "
     "texture: dense crosshatched x and # in shadows, sparse o + e in midtones, "
     "fine dots in highlights. Tight duotone: deep indigo shadows through magenta "
     "to pink-white highlights, monochromatic purple, no natural skin tones. "
     "Dramatic directional key light, deep contrast. Plain flat dark-indigo "
-    "background, clean edges for cutout. Vertical, ultra-high detail, cohesive "
-    "single style."
+    "background, clean edges for cutout. Square composition, ultra-high detail, "
+    "cohesive single style."
 )
 
 # Where files live. Resolved relative to this file so it works no matter what
@@ -73,10 +71,11 @@ OUTPUT_DIR = BACKEND_DIR / "outputs"
 SUBJECT_HEIGHT_RATIO = 0.98
 
 # ---- ASCII halftone rendering (local, deterministic) ----------------------
-# The fal "edit" model only applies a soft halftone; it will not draw literal
-# ASCII characters. So after we cut the subject out, we re-render them as actual
-# glyphs here. This is what guarantees you can SEE the symbols.
-ASCII_RENDER = True          # set False to skip and use the raw fal cutout
+# Optional local pass that re-draws the subject as literal ASCII characters.
+# DISABLED by default: the fal model already produces the editorial halftone
+# look, and layering glyphs on top tends to muddy the portrait against a busy
+# background. Flip to True only if you specifically want hard ASCII glyphs.
+ASCII_RENDER = False         # set True to draw literal ASCII glyphs locally
 ASCII_COLUMNS = 110          # how many glyph columns across the subject (fewer = bigger, more legible glyphs)
 
 # Glyph ramp ordered LIGHTEST -> DARKEST (by ink coverage). Highlights get a

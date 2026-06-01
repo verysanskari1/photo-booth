@@ -96,8 +96,9 @@
   .frame video, .frame img, .frame canvas {
     width: 100%; height: 100%; object-fit: cover; display: block;
   }
-  /* Mirror the live preview so it feels like a mirror; we un-mirror on capture. */
-  #video { transform: scaleX(-1); }
+  /* Show the live preview un-mirrored so it matches the captured photo exactly
+     (no jarring left-right flip when you take the shot). */
+  #video { transform: none; }
 
   /* ---- Buttons -------------------------------------------------------- */
   .btn-row { display: flex; gap: 16px; margin-top: 26px; width: 100%; max-width: 560px; }
