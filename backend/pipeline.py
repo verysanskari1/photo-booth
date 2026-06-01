@@ -27,7 +27,7 @@ import os
 from pathlib import Path
 
 import fal_client
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # ---------------------------------------------------------------------------
 # Configuration / constants
@@ -84,10 +84,19 @@ ASCII_COLUMNS = 110          # how many glyph columns across the subject (fewer 
 ASCII_RAMP = " .:-+=eo×x#@"
 
 # Duotone colour stops used to tint each glyph by its brightness:
-#   bright highlight -> pink-white, midtone -> magenta, shadow -> deep indigo.
+#   bright highlight -> pink-white, midtone -> magenta, shadow -> lit indigo.
+# NOTE: the shadow colour is kept clearly lighter than a dark background so the
+# darkest glyphs still read instead of vanishing.
 ASCII_HI = (255, 214, 236)   # highlights (pink-white)
-ASCII_MID = (190, 74, 168)   # midtones (magenta)
-ASCII_LO = (44, 22, 74)      # shadows (deep indigo)
+ASCII_MID = (198, 86, 178)   # midtones (magenta)
+ASCII_LO = (92, 54, 134)     # shadows (lit indigo, still visible)
+
+# A soft dark "plate" is drawn behind the subject so the ASCII glyphs pop off a
+# busy/dark background instead of blending into it. Set SUBJECT_BACKING=False to
+# disable, or tune the colour/opacity/softness.
+SUBJECT_BACKING = True
+BACKING_COLOR = (14, 8, 28)  # near-black indigo
+BACKING_ALPHA = 175          # 0 = invisible, 255 = solid
 
 # Monospace fonts to try (covers macOS + Linux); falls back to a bundled default.
 _MONO_FONTS = [
@@ -203,7 +212,18 @@ def asciify(cutout: Image.Image, columns: int = ASCII_COLUMNS) -> Image.Image:
     lum_grid = cutout.convert("L").resize((cols, rows), Image.BILINEAR)
     alpha_grid = cutout.getchannel("A").resize((cols, rows), Image.BILINEAR)
 
-    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    # Optional soft backing plate shaped like the subject silhouette, so the
+    # glyphs read against a busy/dark background.
+    if SUBJECT_BACKING:
+        silhouette = cutout.getchannel("A")
+        plate = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        solid = Image.new("RGBA", (w, h), BACKING_COLOR + (BACKING_ALPHA,))
+        plate = Image.composite(solid, plate, silhouette)
+        plate = plate.filter(ImageFilter.GaussianBlur(max(2, cell // 2)))
+        canvas = plate
+    else:
+        canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+
     draw = ImageDraw.Draw(canvas)
     font = _load_mono_font(int(cell * 1.25))
     ramp_last = len(ASCII_RAMP) - 1
@@ -218,7 +238,7 @@ def asciify(cutout: Image.Image, columns: int = ASCII_COLUMNS) -> Image.Image:
             glyph = ASCII_RAMP[round(darkness * ramp_last)]
             if glyph == " ":
                 continue
-            color = _duotone(lum) + (a,)
+            color = _duotone(lum) + (255,)
             draw.text((i * cell, j * cell), glyph, font=font, fill=color)
 
     return canvas
