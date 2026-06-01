@@ -140,6 +140,31 @@
   #errorMsg { font-family: var(--sans); color: #d9c4ff; font-size: 15px; line-height: 1.5;
               word-break: break-word; margin-bottom: 24px; }
 
+  /* ---- Identify card -------------------------------------------------- */
+  .id-card {
+    width: 100%; max-width: 560px; background: rgba(255,255,255,.05);
+    border: 2px solid rgba(200,255,77,.30); border-radius: 18px; padding: 28px 26px;
+  }
+  .id-title { font-family: var(--serif); font-size: 30px; color: var(--white); }
+  .id-sub { font-family: var(--sans); font-size: 14px; color: #d9c4ff; margin: 6px 0 18px; }
+  .id-label { display: block; font-family: var(--sans); font-weight: 700; font-size: 12px;
+              letter-spacing: .12em; text-transform: uppercase; color: var(--neon);
+              margin: 16px 0 6px; }
+  .id-input {
+    width: 100%; font-family: var(--sans); font-size: 20px; color: var(--white);
+    background: rgba(0,0,0,.25); border: 2px solid rgba(255,255,255,.25);
+    border-radius: 12px; padding: 14px 16px; outline: none;
+  }
+  .id-input:focus { border-color: var(--neon); }
+
+  /* ---- Result strip (tall) ------------------------------------------- */
+  .strip-wrap { flex: 1; display: flex; align-items: center; justify-content: center;
+                width: 100%; min-height: 0; }
+  .strip-wrap img {
+    max-height: 100%; max-width: 86%; width: auto; height: auto;
+    border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.5); object-fit: contain;
+  }
+
   footer { text-align: center; padding: 0 0 26px; z-index: 2; }
   footer .pill {
     display: inline-block; background: var(--neon); color: var(--ink);
@@ -176,7 +201,23 @@
     </div>
     <div class="btn-row">
       <button class="btn-ghost" id="btnRetake">RETAKE</button>
-      <button class="btn-primary" id="btnStylize">STYLIZE</button>
+      <button class="btn-primary" id="btnStylize">CONTINUE</button>
+    </div>
+  </section>
+
+  <!-- SCREEN 2b: confirm / enter identity -->
+  <section id="screen-identify" class="screen">
+    <div class="id-card">
+      <div class="id-title">Who's in the picture?</div>
+      <div class="id-sub" id="idHint">Confirm your details for the strip</div>
+      <label class="id-label">Name</label>
+      <input id="inputName" class="id-input" type="text" placeholder="Your name" autocomplete="off" />
+      <label class="id-label">Company</label>
+      <input id="inputCompany" class="id-input" type="text" placeholder="Your company" autocomplete="off" />
+    </div>
+    <div class="btn-row">
+      <button class="btn-ghost" id="btnIdBack">BACK</button>
+      <button class="btn-primary" id="btnMakeStrip">MAKE MY STRIP</button>
     </div>
   </section>
 
@@ -187,10 +228,10 @@
     <div id="loadingMsg">Warming up the pixels</div>
   </section>
 
-  <!-- SCREEN 4: result -->
+  <!-- SCREEN 4: result (tall photo strip) -->
   <section id="screen-result" class="screen">
-    <div class="frame">
-      <img id="resultImg" alt="Your portrait" />
+    <div class="strip-wrap">
+      <img id="resultImg" alt="Your photo strip" />
     </div>
     <div class="btn-row">
       <button class="btn-ghost" id="btnNew">NEW</button>
@@ -235,11 +276,12 @@ const CAPTURE_W = 1080, CAPTURE_H = 1080;
  * ====================================================================== */
 const $ = (id) => document.getElementById(id);
 const screens = {
-  camera:  $("screen-camera"),
-  confirm: $("screen-confirm"),
-  loading: $("screen-loading"),
-  result:  $("screen-result"),
-  error:   $("screen-error"),
+  camera:   $("screen-camera"),
+  confirm:  $("screen-confirm"),
+  identify: $("screen-identify"),
+  loading:  $("screen-loading"),
+  result:   $("screen-result"),
+  error:    $("screen-error"),
 };
 function show(name) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
@@ -302,11 +344,36 @@ $("btnCapture").addEventListener("click", () => {
 
 $("btnRetake").addEventListener("click", () => show("camera"));
 
-$("btnStylize").addEventListener("click", () => {
+// CONTINUE -> run face recognition, then show the (pre-filled) confirm screen.
+$("btnStylize").addEventListener("click", async () => {
+  if (!capturedBlob) { showError("No photo captured."); return; }
+  $("loadingMsg").textContent = "Looking you up…";
+  $("idHint").textContent = "Confirm your details for the strip";
+  show("loading");
+  try {
+    const form = new FormData();
+    form.append("photo", capturedBlob, "photo.jpg");
+    const res = await fetch(BACKEND_URL + "/identify", { method: "POST", body: form });
+    const data = res.ok ? await res.json() : {};
+    $("inputName").value = data.name || "";
+    $("inputCompany").value = data.company || "";
+    if (data.matched) $("idHint").textContent = "We think we recognized you — edit if needed";
+  } catch (e) {
+    // Recognition is best-effort; just show the empty form.
+    $("inputName").value = "";
+    $("inputCompany").value = "";
+  }
+  show("identify");
+});
+
+$("btnIdBack").addEventListener("click", () => show("confirm"));
+
+// MAKE MY STRIP -> build the two-pose strip with the confirmed name.
+$("btnMakeStrip").addEventListener("click", () => {
   if (!capturedBlob) { showError("No photo captured."); return; }
   startLoadingMessages();
   show("loading");
-  sendPhoto(capturedBlob);
+  makeStrip(capturedBlob, $("inputName").value.trim(), $("inputCompany").value.trim());
 });
 
 $("btnNew").addEventListener("click", resetToCamera);
@@ -315,6 +382,8 @@ $("btnErrorRetry").addEventListener("click", resetToCamera);
 function resetToCamera() {
   capturedBlob = null;
   $("resultImg").src = "";
+  $("inputName").value = "";
+  $("inputCompany").value = "";
   show("camera");
 }
 
@@ -347,11 +416,13 @@ function stopLoadingMessages() { clearInterval(loadingTimer); }
 /* ====================================================================== *
  *  Talk to the backend
  * ====================================================================== */
-async function sendPhoto(blob) {
+async function makeStrip(blob, name, company) {
   const form = new FormData();
   form.append("photo", blob, "photo.jpg");
+  form.append("name", name);
+  form.append("company", company);
   try {
-    const res = await fetch(BACKEND_URL + "/generate", { method: "POST", body: form });
+    const res = await fetch(BACKEND_URL + "/generate_strip", { method: "POST", body: form });
     if (!res.ok) {
       const text = await res.text();
       throw new Error("Server " + res.status + ": " + text);

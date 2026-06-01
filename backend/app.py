@@ -29,10 +29,14 @@ import sys
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+import couplet
+import faces
+import strip as strip_module
 
 import pipeline
 
@@ -133,6 +137,71 @@ async def generate(photo: UploadFile = File(...)):
 
     image_url = f"{PUBLIC_HOST}/outputs/{output_path.name}"
     return JSONResponse({"image_url": image_url})
+
+
+async def _save_upload(photo: UploadFile) -> tuple[str, Path]:
+    """Persist an uploaded photo and return (job_id, path)."""
+    job_id = uuid.uuid4().hex[:12]
+    suffix = Path(photo.filename or "photo.jpg").suffix or ".jpg"
+    path = UPLOAD_DIR / f"{job_id}{suffix}"
+    path.write_bytes(await photo.read())
+    return job_id, path
+
+
+@app.post("/identify")
+async def identify(photo: UploadFile = File(...)):
+    """Run face recognition on the captured photo (Phase 5).
+
+    Returns {name, company, confidence, matched}. `matched` is True only when the
+    face confidently matches an attendee. The frontend uses this to pre-fill the
+    confirm screen; if not matched, the guest just types their name.
+    """
+    _, upload_path = await _save_upload(photo)
+    try:
+        return JSONResponse(faces.identify(upload_path))
+    except Exception as exc:  # noqa: BLE001 - never block the booth on recognition
+        import traceback
+
+        traceback.print_exc()
+        return JSONResponse({"name": "", "company": "", "confidence": 0.0, "matched": False})
+
+
+@app.post("/generate_strip")
+async def generate_strip(
+    photo: UploadFile = File(...),
+    name: str = Form(""),
+    company: str = Form(""),
+):
+    """Build the print-ready photo strip (Phases 4 + 6).
+
+    Two stylized poses (top + bottom) + a personalized couplet block with the
+    guest's name in the middle. Returns {image_url, name, couplet}.
+    """
+    if not pipeline.BACKGROUND_PATH.exists():
+        raise HTTPException(status_code=500, detail="Missing my_background.png (see README).")
+
+    job_id, upload_path = await _save_upload(photo)
+    output_path = OUTPUT_DIR / f"{job_id}_strip.png"
+
+    try:
+        # Two poses — each is a full stylize -> cutout -> composite.
+        pose1 = pipeline.generate_portrait(upload_path, seed=1, extra_prompt=pipeline.POSE_VARIANTS[0])
+        pose2 = pipeline.generate_portrait(upload_path, seed=2, extra_prompt=pipeline.POSE_VARIANTS[1])
+        couplet_lines = couplet.make_couplet(name, company or None)
+        display_name = (name or "").strip() or "Innovator"
+        strip_img = strip_module.build_strip(pose1, pose2, display_name, couplet_lines)
+        strip_img.save(output_path, "PNG")
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Strip generation failed: {exc}") from exc
+
+    return JSONResponse({
+        "image_url": f"{PUBLIC_HOST}/outputs/{output_path.name}",
+        "name": display_name,
+        "couplet": couplet_lines,
+    })
 
 
 # ---------------------------------------------------------------------------

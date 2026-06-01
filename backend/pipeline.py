@@ -111,23 +111,23 @@ _MONO_FONTS = [
 # Step 1 — Stylize the photo
 # ---------------------------------------------------------------------------
 
-def stylize(photo_path: str | Path, seed: int | None = None) -> str:
+def stylize(photo_path: str | Path, seed: int | None = None, extra_prompt: str = "") -> str:
     """Send the captured photo to nano-banana and get back a stylized portrait.
 
     Returns the URL of the stylized image (hosted by fal). We upload the local
     photo to fal first so it has a URL to feed into image_urls.
 
-    `seed` is optional and only used later (Phase 4 runs this twice with
-    different seeds to make two variations for the print strip). Leaving it None
-    lets fal pick a random seed.
+    `seed` and `extra_prompt` let the strip (Phase 4) run this twice for two
+    different poses. Leaving seed None lets fal pick a random seed.
     """
     print("[1/3] Stylizing photo via", STYLIZE_MODEL, "...")
 
     # Upload the local file; fal returns a temporary public URL for it.
     image_url = fal_client.upload_file(str(photo_path))
 
+    prompt = STYLE_PROMPT + ((" " + extra_prompt) if extra_prompt else "")
     arguments = {
-        "prompt": STYLE_PROMPT,
+        "prompt": prompt,
         "image_urls": [image_url],
         "aspect_ratio": "1:1",
         "num_images": 1,
@@ -315,18 +315,38 @@ def _download_image(url: str) -> Image.Image:
     return Image.open(io.BytesIO(data))
 
 
-def run_pipeline(photo_path: str | Path, output_path: str | Path, seed: int | None = None) -> Path:
-    """Run all three steps and write the final PNG to `output_path`.
+# Two pose hints appended to the prompt to give the strip's top and bottom
+# photos a bit of variety. (nano-banana preserves pose somewhat, so these are
+# gentle nudges rather than guarantees.)
+POSE_VARIANTS = [
+    "Pose: confident straight-on, chin level, subtle closed-mouth smile.",
+    "Pose: head turned slightly to a relaxed three-quarter angle, looking at the "
+    "camera with a warm friendly smile.",
+]
 
-    Returns the path to the saved file. This is the single function the web
-    server and the CLI both call.
+
+def generate_portrait(
+    photo_path: str | Path, seed: int | None = None, extra_prompt: str = ""
+) -> Image.Image:
+    """Run stylize -> remove bg -> (ascii) -> composite and RETURN the image.
+
+    This is the reusable core. The strip calls it twice (two poses); the single
+    -image endpoint / CLI call it once and then save.
     """
-    stylized_url = stylize(photo_path, seed=seed)
+    stylized_url = stylize(photo_path, seed=seed, extra_prompt=extra_prompt)
     cutout_url = remove_background(stylized_url)
     cutout = _download_image(cutout_url)
     if ASCII_RENDER:
         cutout = asciify(cutout)
-    final = composite(cutout)
+    return composite(cutout)
+
+
+def run_pipeline(photo_path: str | Path, output_path: str | Path, seed: int | None = None) -> Path:
+    """Run the pipeline once and write the final PNG to `output_path`.
+
+    Returns the path to the saved file. Used by the single-image endpoint + CLI.
+    """
+    final = generate_portrait(photo_path, seed=seed)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

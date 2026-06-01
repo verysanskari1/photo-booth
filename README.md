@@ -77,12 +77,54 @@ backend/
 
 ---
 
+## Photo strip + face recognition + couplet (Phases 4–6)
+
+The booth can now produce a **2×6" photo strip**: two stylized poses (top +
+bottom) with a personalized **couplet + name** in the middle. The name is filled
+in by **face recognition** against your attendee list, and the guest confirms/edits
+it on screen before the strip is built.
+
+### Frontend flow
+camera → confirm shot → **confirm name** (pre-filled if recognized) → strip result.
+
+### Extra env vars (all optional — each piece degrades gracefully)
+
+```bash
+# Couplet via OpenRouter (OpenAI-compatible). Without it, hand-written template
+# couplets are used instead.
+export OPENROUTER_API_KEY="sk-or-..."
+export OPENROUTER_MODEL="openai/gpt-4o-mini"   # any OpenRouter model id
+```
+
+### Face recognition (runs on the backend, not the iPad)
+
+Uses **InsightFace** locally — no per-call cost, faces never leave your machine.
+Install pulls in `insightface onnxruntime numpy` (already in requirements.txt; the
+model downloads once on first run).
+
+Attendee database lives in `backend/attendees/` — see
+`backend/attendees/README.md`. It ships with 3 placeholder rows so the flow works
+immediately; drop in one reference headshot per real attendee + edit
+`attendees.csv` (`image,name,company`), then **restart the backend**. If
+InsightFace isn't installed or no face matches, the guest just types their name.
+
+### New endpoints
+- `POST /identify` (photo) → `{name, company, confidence, matched}`
+- `POST /generate_strip` (photo, name, company) → `{image_url, name, couplet}`
+
+### Cost note (updated)
+The strip runs stylize **twice** per guest (two poses) + two background removals,
+so ~**$0.16+/guest** in fal calls → roughly **$8–10 for ~50 guests**. The couplet
+LLM call is fractions of a cent (or free with templates).
+
+---
+
 ## Roadmap
 
 - **Phase 1 — Backend pipeline** ✅
-- Phase 2 — Frontend HTML page (5 screens), wired to `/generate`
-- Phase 3 — Full README (https/ngrok setup, costs)
-- Phase 4 — Print-ready 2×6" strip (two variations + poem block)
-- Phase 5 — Face recognition against a ~50-person attendee DB
-- Phase 6 — Personalized poem via LLM
+- **Phase 2 — Frontend (camera + screens)** ✅
+- **Phase 4 — Print-ready 2×6" strip (two poses + couplet block)** ✅
+- **Phase 5 — Face recognition against attendee DB** ✅
+- **Phase 6 — Personalized couplet via LLM (OpenRouter)** ✅
+- Phase 3 — Full event README (https/ngrok setup)
 - Phase 7 — DNP DS620A dye-sub strip printing

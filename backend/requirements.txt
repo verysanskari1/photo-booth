@@ -1,6 +1,19 @@
 # Innovator Awards Photobooth — backend dependencies
+
+# --- Core (Phases 1-2): always required ---
 fastapi
 uvicorn[standard]
 python-multipart      # lets FastAPI accept multipart/form-data file uploads
 fal-client            # official fal.ai client; reads the FAL_KEY env var
-Pillow                # local image compositing
+Pillow                # local image compositing + strip assembly
+
+# --- Couplet (Phase 6): OpenRouter via the OpenAI-compatible SDK ---
+# Optional: without OPENROUTER_API_KEY the booth falls back to template couplets.
+openai
+
+# --- Face recognition (Phase 5): runs on the backend, not the iPad ---
+# Optional: without these, identify() just returns "no match" and the guest
+# confirms their name on screen. InsightFace pulls in onnxruntime + numpy.
+insightface
+onnxruntime
+numpy
