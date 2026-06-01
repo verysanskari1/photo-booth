@@ -41,8 +41,13 @@ REMOVE_BG_MODEL = "fal-ai/birefnet/v2"
 # look of every portrait depends on this wording.
 STYLE_PROMPT = (
     "Transform this portrait into a high-end editorial halftone artwork. "
-    "Recompose into a formal straight-on portrait: head facing forward, "
-    "shoulders squared and level, chin level, centered, upright. Framed from "
+    "Regardless of the original camera angle, distance, lighting, or how the "
+    "photo was taken (even a casual or unflattering snapshot), always produce a "
+    "polished, professional corporate headshot: the subject looking directly "
+    "into the camera, face fully visible and flattering, confident neutral "
+    "expression. Recompose into a formal straight-on portrait: head facing "
+    "forward, shoulders squared and level, chin level, centered, upright. "
+    "Framed from "
     "mid-chest up, with BOTH shoulders and the full upper chest completely "
     "inside the frame and generous empty margin around the entire subject. Zoom "
     "out so the figure sits small and centered; the head and both shoulders must "
@@ -90,7 +95,7 @@ def stylize(photo_path: str | Path, seed: int | None = None) -> str:
     arguments = {
         "prompt": STYLE_PROMPT,
         "image_urls": [image_url],
-        "aspect_ratio": "3:4",
+        "aspect_ratio": "1:1",
         "num_images": 1,
     }
     if seed is not None:
