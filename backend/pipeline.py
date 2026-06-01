@@ -27,7 +27,7 @@ import os
 from pathlib import Path
 
 import fal_client
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # ---------------------------------------------------------------------------
 # Configuration / constants
@@ -71,6 +71,32 @@ OUTPUT_DIR = BACKEND_DIR / "outputs"
 # How tall the cut-out subject should be relative to the background height.
 # 0.98 = the person fills almost the full height and sits flush at the bottom.
 SUBJECT_HEIGHT_RATIO = 0.98
+
+# ---- ASCII halftone rendering (local, deterministic) ----------------------
+# The fal "edit" model only applies a soft halftone; it will not draw literal
+# ASCII characters. So after we cut the subject out, we re-render them as actual
+# glyphs here. This is what guarantees you can SEE the symbols.
+ASCII_RENDER = True          # set False to skip and use the raw fal cutout
+ASCII_COLUMNS = 110          # how many glyph columns across the subject (fewer = bigger, more legible glyphs)
+
+# Glyph ramp ordered LIGHTEST -> DARKEST (by ink coverage). Highlights get a
+# space/dot, midtones get o + e, shadows get the dense x and #.
+ASCII_RAMP = " .:-+=eo×x#@"
+
+# Duotone colour stops used to tint each glyph by its brightness:
+#   bright highlight -> pink-white, midtone -> magenta, shadow -> deep indigo.
+ASCII_HI = (255, 214, 236)   # highlights (pink-white)
+ASCII_MID = (190, 74, 168)   # midtones (magenta)
+ASCII_LO = (44, 22, 74)      # shadows (deep indigo)
+
+# Monospace fonts to try (covers macOS + Linux); falls back to a bundled default.
+_MONO_FONTS = [
+    "/System/Library/Fonts/Menlo.ttc",
+    "/System/Library/Fonts/Monaco.ttf",
+    "/System/Library/Fonts/Courier.ttc",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +156,72 @@ def remove_background(image_url: str) -> str:
     cutout_url = result["image"]["url"]
     print("      -> cutout image:", cutout_url)
     return cutout_url
+
+
+# ---------------------------------------------------------------------------
+# Step 2.5 — Re-render the subject as REAL ASCII glyphs (local, deterministic)
+# ---------------------------------------------------------------------------
+
+def _load_mono_font(size: int) -> ImageFont.FreeTypeFont:
+    for path in _MONO_FONTS:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _duotone(brightness: float) -> tuple[int, int, int]:
+    """Map a 0..1 brightness to the indigo -> magenta -> pink duotone."""
+    if brightness < 0.5:
+        t = brightness / 0.5
+        a, b = ASCII_LO, ASCII_MID
+    else:
+        t = (brightness - 0.5) / 0.5
+        a, b = ASCII_MID, ASCII_HI
+    return tuple(int(a[k] + (b[k] - a[k]) * t) for k in range(3))
+
+
+def asciify(cutout: Image.Image, columns: int = ASCII_COLUMNS) -> Image.Image:
+    """Turn the transparent subject cutout into actual ASCII-character art.
+
+    We sample the subject onto a low-res grid (one cell per glyph), then for each
+    cell draw a monospace character whose ink-density matches the cell brightness
+    and whose colour follows the purple duotone. Glyphs are only drawn where the
+    subject is opaque, so the background stays transparent for compositing.
+    """
+    print("[2.5] Rendering ASCII glyphs (", columns, "columns )...")
+    cutout = cutout.convert("RGBA")
+    w, h = cutout.size
+
+    # Cell size in source pixels, and the resulting grid dimensions.
+    cell = max(4, w // columns)
+    cols = max(1, w // cell)
+    rows = max(1, h // cell)
+
+    # Downsample once: average brightness + average alpha per cell (fast).
+    lum_grid = cutout.convert("L").resize((cols, rows), Image.BILINEAR)
+    alpha_grid = cutout.getchannel("A").resize((cols, rows), Image.BILINEAR)
+
+    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+    font = _load_mono_font(int(cell * 1.25))
+    ramp_last = len(ASCII_RAMP) - 1
+
+    for j in range(rows):
+        for i in range(cols):
+            a = alpha_grid.getpixel((i, j))
+            if a < 60:                      # cell is (mostly) outside the subject
+                continue
+            lum = lum_grid.getpixel((i, j)) / 255.0
+            darkness = 1.0 - lum
+            glyph = ASCII_RAMP[round(darkness * ramp_last)]
+            if glyph == " ":
+                continue
+            color = _duotone(lum) + (a,)
+            draw.text((i * cell, j * cell), glyph, font=font, fill=color)
+
+    return canvas
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +305,8 @@ def run_pipeline(photo_path: str | Path, output_path: str | Path, seed: int | No
     stylized_url = stylize(photo_path, seed=seed)
     cutout_url = remove_background(stylized_url)
     cutout = _download_image(cutout_url)
+    if ASCII_RENDER:
+        cutout = asciify(cutout)
     final = composite(cutout)
 
     output_path = Path(output_path)
