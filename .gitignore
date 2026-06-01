@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Runtime artifacts — generated per guest, not source
+backend/uploads/
+backend/outputs/
+
+# Optional brand fonts you drop in locally (licensed separately)
+backend/fonts/
+
+# Env
+.env

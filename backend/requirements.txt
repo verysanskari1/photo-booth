@@ -1,0 +1,6 @@
+# Innovator Awards Photobooth — backend dependencies
+fastapi
+uvicorn[standard]
+python-multipart      # lets FastAPI accept multipart/form-data file uploads
+fal-client            # official fal.ai client; reads the FAL_KEY env var
+Pillow                # local image compositing
