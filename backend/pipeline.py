@@ -43,8 +43,11 @@ STYLE_PROMPT = (
     "Transform this portrait into a high-end editorial halftone artwork. "
     "Recompose into a formal straight-on portrait: head facing forward, "
     "shoulders squared and level, chin level, centered, upright. Framed from "
-    "mid-chest up, full shoulders and upper chest visible, empty space below "
-    "the shoulders, leave margin on all sides, do not crop shoulders or head. "
+    "mid-chest up, with BOTH shoulders and the full upper chest completely "
+    "inside the frame and generous empty margin around the entire subject. Zoom "
+    "out so the figure sits small and centered; the head and both shoulders must "
+    "not touch or cross any edge of the image. Do not crop the shoulders, arms, "
+    "or head. Empty space below the shoulders. "
     "Keep the person clearly recognizable. Rendered as a varied ASCII-dither "
     "texture: dense crosshatched x and # in shadows, sparse o + e in midtones, "
     "fine dots in highlights. Tight duotone: deep indigo shadows through magenta "
@@ -61,7 +64,8 @@ BACKGROUND_PATH = BACKEND_DIR / "my_background.png"
 OUTPUT_DIR = BACKEND_DIR / "outputs"
 
 # How tall the cut-out subject should be relative to the background height.
-SUBJECT_HEIGHT_RATIO = 0.95
+# 0.98 = the person fills almost the full height and sits flush at the bottom.
+SUBJECT_HEIGHT_RATIO = 0.98
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +147,16 @@ def composite(cutout: Image.Image, background_path: str | Path = BACKGROUND_PATH
     bg_w, bg_h = background.size
 
     cutout = cutout.convert("RGBA")
+
+    # The AI leaves transparent padding around the subject (the prompt asks for
+    # "empty space below the shoulders"). Crop that padding away using the alpha
+    # channel's bounding box so the *actual person* is what we scale and place.
+    # This is what makes the subject fill the frame and sit flush at the bottom
+    # instead of floating with a gap below.
+    alpha_bbox = cutout.getchannel("A").getbbox()
+    if alpha_bbox:
+        cutout = cutout.crop(alpha_bbox)
+
     cut_w, cut_h = cutout.size
 
     # Scale by height first.

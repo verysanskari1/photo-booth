@@ -31,7 +31,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import pipeline
@@ -52,6 +52,11 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR = pipeline.BACKEND_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+# The frontend lives in ../frontend. We serve it from this same server so local
+# testing is one command: run uvicorn, open the page, camera + /generate all
+# work same-origin (no CORS or tunnel needed on localhost).
+FRONTEND_DIR = pipeline.BACKEND_DIR.parent / "frontend"
+
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
@@ -71,11 +76,24 @@ app.add_middleware(
 # Serve finished images at /outputs/<file>.png so the frontend can display them.
 app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
 
+# Serve frontend assets (e.g. dropped-in fonts) at /static if the folder exists.
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+
+@app.get("/health")
+def health():
+    """Tiny health check so you can confirm the server is up."""
+    return {"status": "ok", "service": "Innovator Awards Photobooth"}
+
 
 @app.get("/")
-def health():
-    """Tiny health check so you can confirm the server is up in a browser."""
-    return {"status": "ok", "service": "Innovator Awards Photobooth"}
+def index():
+    """Serve the photobooth frontend page (falls back to health if missing)."""
+    index_file = FRONTEND_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return JSONResponse({"status": "ok", "service": "Innovator Awards Photobooth"})
 
 
 @app.post("/generate")

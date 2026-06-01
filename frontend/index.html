@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Innovator Awards Photobooth</title>
+
+<!-- Satoshi (sans) from Fontshare. Kalice (serif) isn't on a public CDN, so we
+     @font-face it from /static/fonts/Kalice.woff2 if you drop the file there,
+     and gracefully fall back to a serif otherwise. -->
+<link rel="preconnect" href="https://api.fontshare.com" />
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+
+<style>
+  /* ---- Brand fonts ---------------------------------------------------- */
+  /* Drop Kalice.woff2 (or .ttf) into frontend/fonts/ to use the real face. */
+  @font-face {
+    font-family: "Kalice";
+    src: url("/static/fonts/Kalice.woff2") format("woff2"),
+         url("/static/fonts/Kalice.ttf") format("truetype");
+    font-weight: 400;
+    font-display: swap;
+  }
+
+  :root {
+    /* Palette pulled from the Innovator Awards standee */
+    --indigo-deep: #1b0f33;
+    --indigo: #2a1850;
+    --purple: #6a2a96;
+    --magenta: #a64bb0;
+    --neon: #c8ff4d;       /* the green pill / accent */
+    --ink: #140d22;
+    --white: #ffffff;
+    --serif: "Kalice", "Georgia", "Times New Roman", serif;
+    --sans: "Satoshi", -apple-system, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--indigo-deep);
+    font-family: var(--sans);
+    color: var(--white);
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  /* Portrait stage, sized for an iPad held upright. */
+  #stage {
+    position: relative;
+    width: 100vw; height: 100vh;
+    max-width: 900px; margin: 0 auto;
+    background:
+      radial-gradient(120% 80% at 50% 0%, var(--indigo) 0%, var(--indigo-deep) 60%),
+      linear-gradient(180deg, var(--indigo-deep) 0%, #2c1145 55%, #4a1d63 100%);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Neon green corner brackets — a nod to the terminal aesthetic. */
+  .bracket { position: absolute; width: 46px; height: 46px; border: 4px solid var(--neon); z-index: 5; pointer-events: none; }
+  .bracket.tl { top: 22px; left: 22px; border-right: none; border-bottom: none; }
+  .bracket.tr { top: 22px; right: 22px; border-left: none; border-bottom: none; }
+  .bracket.bl { bottom: 22px; left: 22px; border-right: none; border-top: none; }
+  .bracket.br { bottom: 22px; right: 22px; border-left: none; border-top: none; }
+
+  /* ---- Header --------------------------------------------------------- */
+  header { text-align: center; padding: 34px 24px 10px; z-index: 2; }
+  header .eyebrow {
+    font-family: var(--sans); font-weight: 700; letter-spacing: .18em;
+    font-size: 13px; text-transform: uppercase; color: var(--neon); margin-bottom: 10px;
+  }
+  header h1 {
+    font-family: var(--serif); font-weight: 400; line-height: .98;
+    font-size: clamp(34px, 8vw, 60px); margin: 0; color: var(--white);
+  }
+  header .tagline {
+    font-family: var(--sans); font-weight: 500; letter-spacing: .12em;
+    font-size: 12px; text-transform: uppercase; color: #d9c4ff; margin-top: 12px; opacity: .9;
+  }
+
+  /* ---- Screens -------------------------------------------------------- */
+  .screen { flex: 1; display: none; flex-direction: column; align-items: center;
+            justify-content: center; padding: 16px 24px 36px; z-index: 2; min-height: 0; }
+  .screen.active { display: flex; }
+
+  /* Media frame shared by camera / confirm / result */
+  .frame {
+    position: relative; width: 100%; max-width: 560px;
+    aspect-ratio: 3 / 4; border-radius: 18px; overflow: hidden;
+    background: #0d0820; border: 2px solid rgba(200,255,77,.35);
+    box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .frame video, .frame img, .frame canvas {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  /* Mirror the live preview so it feels like a mirror; we un-mirror on capture. */
+  #video { transform: scaleX(-1); }
+
+  /* ---- Buttons -------------------------------------------------------- */
+  .btn-row { display: flex; gap: 16px; margin-top: 26px; width: 100%; max-width: 560px; }
+  button {
+    font-family: var(--sans); font-weight: 700; font-size: 20px;
+    border: none; border-radius: 999px; padding: 20px 24px; cursor: pointer;
+    flex: 1; letter-spacing: .04em; transition: transform .06s ease, opacity .15s ease;
+  }
+  button:active { transform: scale(.97); }
+  .btn-primary { background: var(--neon); color: var(--ink); }
+  .btn-ghost { background: transparent; color: var(--white); border: 2px solid rgba(255,255,255,.5); }
+  .btn-capture {
+    font-size: 24px; padding: 24px; background: var(--neon); color: var(--ink);
+    box-shadow: 0 0 0 6px rgba(200,255,77,.18), 0 14px 40px rgba(200,255,77,.25);
+  }
+
+  /* ---- Loading -------------------------------------------------------- */
+  .spinner {
+    width: 84px; height: 84px; border-radius: 50%;
+    border: 7px solid rgba(255,255,255,.12); border-top-color: var(--neon);
+    animation: spin 1s linear infinite; margin-bottom: 30px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingMsg {
+    font-family: var(--sans); font-weight: 500; font-size: 19px;
+    color: #e7d8ff; min-height: 26px; text-align: center; max-width: 460px;
+  }
+  .loading-title { font-family: var(--serif); font-size: 30px; margin-bottom: 8px; }
+
+  /* ---- Error ---------------------------------------------------------- */
+  .error-box { text-align: center; max-width: 480px; }
+  .error-box .x { font-size: 60px; color: var(--neon); margin-bottom: 12px; }
+  .error-box h2 { font-family: var(--serif); font-weight: 400; font-size: 30px; margin: 0 0 14px; }
+  #errorMsg { font-family: var(--sans); color: #d9c4ff; font-size: 15px; line-height: 1.5;
+              word-break: break-word; margin-bottom: 24px; }
+
+  footer { text-align: center; padding: 0 0 26px; z-index: 2; }
+  footer .pill {
+    display: inline-block; background: var(--neon); color: var(--ink);
+    font-family: var(--sans); font-weight: 700; font-size: 15px;
+    padding: 10px 26px; border-radius: 999px; letter-spacing: .03em;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <span class="bracket tl"></span><span class="bracket tr"></span>
+  <span class="bracket bl"></span><span class="bracket br"></span>
+
+  <header>
+    <div class="eyebrow">HackerRank &nbsp;×&nbsp; ET HRWorld</div>
+    <h1>Innovator Awards<br />Photobooth</h1>
+    <div class="tagline">Built different. Shipped with impact.</div>
+  </header>
+
+  <!-- SCREEN 1: live camera -->
+  <section id="screen-camera" class="screen active">
+    <div class="frame">
+      <video id="video" autoplay playsinline muted></video>
+    </div>
+    <div class="btn-row">
+      <button class="btn-capture" id="btnCapture">CAPTURE</button>
+    </div>
+  </section>
+
+  <!-- SCREEN 2: confirm the shot -->
+  <section id="screen-confirm" class="screen">
+    <div class="frame">
+      <img id="previewImg" alt="Your photo" />
+    </div>
+    <div class="btn-row">
+      <button class="btn-ghost" id="btnRetake">RETAKE</button>
+      <button class="btn-primary" id="btnStylize">STYLIZE</button>
+    </div>
+  </section>
+
+  <!-- SCREEN 3: loading -->
+  <section id="screen-loading" class="screen">
+    <div class="spinner"></div>
+    <div class="loading-title">Making magic…</div>
+    <div id="loadingMsg">Warming up the pixels</div>
+  </section>
+
+  <!-- SCREEN 4: result -->
+  <section id="screen-result" class="screen">
+    <div class="frame">
+      <img id="resultImg" alt="Your portrait" />
+    </div>
+    <div class="btn-row">
+      <button class="btn-ghost" id="btnNew">NEW</button>
+      <button class="btn-primary" id="btnPrint">PRINT</button>
+    </div>
+  </section>
+
+  <!-- SCREEN 5: error -->
+  <section id="screen-error" class="screen">
+    <div class="error-box">
+      <div class="x">⚠</div>
+      <h2>Something glitched</h2>
+      <div id="errorMsg">Unknown error.</div>
+      <div class="btn-row" style="max-width:320px;margin:0 auto;">
+        <button class="btn-primary" id="btnErrorRetry">TRY AGAIN</button>
+      </div>
+    </div>
+  </section>
+
+  <footer><span class="pill">www.hackerrank.com</span></footer>
+</div>
+
+<!-- Hidden canvas used to grab + un-mirror the captured frame -->
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+/* ====================================================================== *
+ *  CONFIG
+ * ====================================================================== */
+
+// Where the backend lives. Empty string = same origin as this page, which is
+// the case when the FastAPI server serves this file (the easy local setup).
+// For the event, when the frontend is on its own https tunnel, set this to the
+// backend's public https URL, e.g. "https://your-backend.ngrok.app".
+const BACKEND_URL = "";
+
+// Capture aspect ratio (portrait). The backend re-frames to 3:4 anyway.
+const CAPTURE_W = 900, CAPTURE_H = 1200;
+
+/* ====================================================================== *
+ *  Tiny helpers
+ * ====================================================================== */
+const $ = (id) => document.getElementById(id);
+const screens = {
+  camera:  $("screen-camera"),
+  confirm: $("screen-confirm"),
+  loading: $("screen-loading"),
+  result:  $("screen-result"),
+  error:   $("screen-error"),
+};
+function show(name) {
+  Object.values(screens).forEach((s) => s.classList.remove("active"));
+  screens[name].classList.add("active");
+}
+
+/* ====================================================================== *
+ *  Camera
+ * ====================================================================== */
+const video = $("video");
+let stream = null;
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 1707 } },
+      audio: false,
+    });
+    video.srcObject = stream;
+  } catch (err) {
+    showError(
+      "Camera unavailable. Allow camera access, and remember the camera only " +
+      "works over https or on localhost. (" + err.message + ")"
+    );
+  }
+}
+
+/* Grab the current video frame into the canvas as a portrait 3:4 crop, and
+   UN-MIRROR it (the preview is mirrored for a natural selfie feel, but the
+   photo we send should be true orientation). */
+function captureFrame() {
+  const canvas = $("canvas");
+  canvas.width = CAPTURE_W;
+  canvas.height = CAPTURE_H;
+  const ctx = canvas.getContext("2d");
+
+  // Center-crop the video to a 3:4 region.
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const targetRatio = CAPTURE_W / CAPTURE_H;
+  let sw = vw, sh = vw / targetRatio;
+  if (sh > vh) { sh = vh; sw = vh * targetRatio; }
+  const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+
+  // Draw straight (no horizontal flip) => the saved frame is un-mirrored.
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CAPTURE_W, CAPTURE_H);
+  return canvas;
+}
+
+/* ====================================================================== *
+ *  Screen flow
+ * ====================================================================== */
+let capturedBlob = null;
+
+$("btnCapture").addEventListener("click", () => {
+  const canvas = captureFrame();
+  $("previewImg").src = canvas.toDataURL("image/jpeg", 0.92);
+  canvas.toBlob((blob) => { capturedBlob = blob; }, "image/jpeg", 0.92);
+  show("confirm");
+});
+
+$("btnRetake").addEventListener("click", () => show("camera"));
+
+$("btnStylize").addEventListener("click", () => {
+  if (!capturedBlob) { showError("No photo captured."); return; }
+  startLoadingMessages();
+  show("loading");
+  sendPhoto(capturedBlob);
+});
+
+$("btnNew").addEventListener("click", resetToCamera);
+$("btnErrorRetry").addEventListener("click", resetToCamera);
+
+function resetToCamera() {
+  capturedBlob = null;
+  $("resultImg").src = "";
+  show("camera");
+}
+
+/* ====================================================================== *
+ *  Loading messages (rotating, fun)
+ * ====================================================================== */
+const LOADING_MESSAGES = [
+  "Warming up the pixels…",
+  "Teaching the AI about good lighting…",
+  "Mixing indigo and magenta…",
+  "Crosshatching the shadows…",
+  "Dithering with style…",
+  "Counting your innovation points…",
+  "Cutting you out of the background…",
+  "Placing you on the big stage…",
+  "Almost there — looking sharp!",
+];
+let loadingTimer = null;
+function startLoadingMessages() {
+  let i = 0;
+  $("loadingMsg").textContent = LOADING_MESSAGES[0];
+  clearInterval(loadingTimer);
+  loadingTimer = setInterval(() => {
+    i = (i + 1) % LOADING_MESSAGES.length;
+    $("loadingMsg").textContent = LOADING_MESSAGES[i];
+  }, 2600);
+}
+function stopLoadingMessages() { clearInterval(loadingTimer); }
+
+/* ====================================================================== *
+ *  Talk to the backend
+ * ====================================================================== */
+async function sendPhoto(blob) {
+  const form = new FormData();
+  form.append("photo", blob, "photo.jpg");
+  try {
+    const res = await fetch(BACKEND_URL + "/generate", { method: "POST", body: form });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error("Server " + res.status + ": " + text);
+    }
+    const data = await res.json();
+    stopLoadingMessages();
+    $("resultImg").src = data.image_url;
+    show("result");
+  } catch (err) {
+    stopLoadingMessages();
+    showError(err.message || String(err));
+  }
+}
+
+function showError(msg) {
+  $("errorMsg").textContent = msg;
+  show("error");
+}
+
+/* ====================================================================== *
+ *  Print
+ * ====================================================================== */
+$("btnPrint").addEventListener("click", () => {
+  const url = $("resultImg").src;
+  if (!url) return;
+
+  // --- Simple version: open the image in a new tab and print it. ---------
+  // PHASE 7 HOOK: replace this with a call to a dedicated backend print
+  // endpoint (e.g. POST /print {image_url}) that sends the 2x6" strip to the
+  // DNP DS620A dye-sub printer via the OS print system. Leave this fallback
+  // for non-event / preview use.
+  const w = window.open("", "_blank");
+  if (!w) { alert("Allow pop-ups to print."); return; }
+  w.document.write(
+    '<html><head><title>Print</title><style>' +
+    '@page{margin:0}html,body{margin:0;height:100%}' +
+    'img{width:100%;height:auto;display:block}</style></head>' +
+    '<body><img src="' + url + '" onload="window.focus();window.print();" /></body></html>'
+  );
+  w.document.close();
+});
+
+/* ====================================================================== *
+ *  Boot
+ * ====================================================================== */
+startCamera();
+</script>
+</body>
+</html>
