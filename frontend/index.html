@@ -102,9 +102,9 @@
     position: absolute; top: 0; left: 0;
     width: 100%; height: 100%; object-fit: cover; display: block;
   }
-  /* Show the live preview un-mirrored so it matches the captured photo exactly
-     (no jarring left-right flip when you take the shot). */
-  #video { transform: none; }
+  /* Selfie feel: mirror the live preview. The capture is mirrored to match (see
+     captureFrame), so the preview and the final photo look the same. */
+  #video { transform: scaleX(-1); }
 
   /* ---- Buttons -------------------------------------------------------- */
   .btn-row { display: flex; gap: 16px; margin-top: 26px; width: 100%; max-width: 560px; }
@@ -313,23 +313,24 @@ async function startCamera() {
   }
 }
 
-/* Grab the current video frame into the canvas as a centered square crop. The
-   preview and capture are both un-mirrored (true orientation), so what the guest
-   sees is exactly what gets sent. */
+/* Grab the current video frame into the canvas as a centered square crop, and
+   MIRROR it so the captured photo matches the mirrored (selfie) live preview. */
 function captureFrame() {
   const canvas = $("canvas");
   canvas.width = CAPTURE_W;
   canvas.height = CAPTURE_H;
   const ctx = canvas.getContext("2d");
 
-  // Center-crop the video to a 3:4 region.
+  // Center-crop the video to a square region.
   const vw = video.videoWidth, vh = video.videoHeight;
   const targetRatio = CAPTURE_W / CAPTURE_H;
   let sw = vw, sh = vw / targetRatio;
   if (sh > vh) { sh = vh; sw = vh * targetRatio; }
   const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
 
-  // Draw straight (no horizontal flip) => the saved frame is un-mirrored.
+  // Flip horizontally so the saved frame mirrors the preview (selfie feel).
+  ctx.translate(CAPTURE_W, 0);
+  ctx.scale(-1, 1);
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CAPTURE_W, CAPTURE_H);
   return canvas;
 }
