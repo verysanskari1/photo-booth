@@ -68,15 +68,20 @@ def _font(names, size, system_fallback):
 
 def _serif(size):
     return _font(
-        ["Kalice.ttf", "Kalice-Regular.ttf", "Kalice.otf"],
+        ["Kalice-Regular.otf", "Kalice-Regular.ttf", "Kalice.otf", "Kalice.ttf"],
         size,
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
     )
 
 
 def _sans(size, bold=False):
+    names = (
+        ["Satoshi-Bold.otf", "Satoshi-Bold.ttf"]
+        if bold
+        else ["Satoshi-Regular.otf", "Satoshi-Regular.ttf", "Satoshi.ttf", "Satoshi-Variable.ttf"]
+    )
     return _font(
-        ["Satoshi-Bold.ttf" if bold else "Satoshi.ttf"],
+        names,
         size,
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
         if bold
@@ -121,23 +126,37 @@ def _draw_builtin_base():
 
 
 def _draw_verse(base, name, lines):
-    """Draw the 3-line verse + name attribution centered in the verse box."""
+    """Draw the rhyming couplet + name attribution centered in the verse box.
+
+    Bigger Kalice serif, tighter line spacing (no big gaps), name beneath.
+    """
     draw = ImageDraw.Draw(base)
     bx, by, bw, bh = VERSE_BOX
     cx = bx + bw // 2
 
-    verse_font = _serif(46)
-    name_font = _sans(28, bold=True)
-    line_gap = 60
     lines = [ln for ln in lines if ln]
 
-    block_h = len(lines) * line_gap + 46  # verse lines + name line
-    ty = by + max(18, (bh - block_h) // 2)
+    # Auto-fit: shrink the verse until the widest line fits the box width.
+    max_w = bw - 24
+    verse_size = 52
+    while verse_size > 26:
+        verse_font = _serif(verse_size)
+        widest = max((draw.textlength(ln, font=verse_font) for ln in lines), default=0)
+        if widest <= max_w:
+            break
+        verse_size -= 2
+
+    name_font = _sans(30, bold=True)
+    line_gap = int(verse_size * 1.18)        # tight, proportional spacing
+    name_gap = 28
+
+    block_h = len(lines) * line_gap + name_gap + 34
+    ty = by + max(14, (bh - block_h) // 2)
     for ln in lines:
         _center(draw, cx, ty, ln, verse_font, WHITE)
         ty += line_gap
     if name:
-        _center(draw, cx, ty + 12, name, name_font, NEON)
+        _center(draw, cx, ty + name_gap, name, name_font, NEON)
 
 
 def build_strip(pose1: Image.Image, pose2: Image.Image, name: str, lines: list[str]) -> Image.Image:

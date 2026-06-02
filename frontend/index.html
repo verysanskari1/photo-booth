@@ -13,12 +13,31 @@
 
 <style>
   /* ---- Brand fonts ---------------------------------------------------- */
-  /* Drop Kalice.woff2 (or .ttf) into frontend/fonts/ to use the real face. */
+  /* Drop Kalice into frontend/fonts/ (any of these filenames works). */
   @font-face {
     font-family: "Kalice";
-    src: url("/static/fonts/Kalice.woff2") format("woff2"),
-         url("/static/fonts/Kalice.ttf") format("truetype");
+    src: url("/static/fonts/Kalice-Regular.otf") format("opentype"),
+         url("/static/fonts/Kalice.otf") format("opentype"),
+         url("/static/fonts/Kalice-Regular.ttf") format("truetype"),
+         url("/static/fonts/Kalice.ttf") format("truetype"),
+         url("/static/fonts/Kalice.woff2") format("woff2");
     font-weight: 400;
+    font-display: swap;
+  }
+  /* Optional local Satoshi (the CDN link above also covers it when online). */
+  @font-face {
+    font-family: "Satoshi";
+    src: url("/static/fonts/Satoshi-Regular.otf") format("opentype"),
+         url("/static/fonts/Satoshi-Regular.ttf") format("truetype"),
+         url("/static/fonts/Satoshi.ttf") format("truetype");
+    font-weight: 400;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "Satoshi";
+    src: url("/static/fonts/Satoshi-Bold.otf") format("opentype"),
+         url("/static/fonts/Satoshi-Bold.ttf") format("truetype");
+    font-weight: 700;
     font-display: swap;
   }
 
@@ -159,16 +178,20 @@
     width: 100%; max-width: 560px; background: rgba(255,255,255,.05);
     border: 2px solid rgba(200,255,77,.30); border-radius: 18px; padding: 28px 26px;
   }
-  .id-title { font-family: var(--serif); font-size: 32px; color: var(--white); line-height: 1.1; }
-  .id-sub { font-family: var(--sans); font-size: 14px; color: var(--muted); margin: 8px 0 18px; }
-  .id-label { display: block; font-family: var(--sans); font-weight: 700; font-size: 13px;
-              letter-spacing: .04em; color: var(--neon); margin: 16px 0 6px; }
-  .id-input {
-    width: 100%; font-family: var(--sans); font-size: 20px; color: var(--white);
-    background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.22);
-    border-radius: 12px; padding: 14px 16px; outline: none;
+  /* Editable inline sentence: "Is [name] from [company]?" */
+  .id-sentence {
+    font-family: var(--serif); font-size: clamp(28px, 5.2vw, 40px);
+    color: var(--white); line-height: 1.5; text-align: center;
   }
-  .id-input:focus { border-color: var(--neon); }
+  .id-sentence .id-word, .id-sentence #idLead, .id-sentence #idTail { color: var(--white); }
+  .inline-input {
+    font-family: var(--serif); font-size: inherit; color: var(--neon);
+    background: transparent; border: none; border-bottom: 2px dashed rgba(185,232,79,.5);
+    outline: none; text-align: center; padding: 0 4px; min-width: 2ch;
+  }
+  .inline-input::placeholder { color: var(--muted); opacity: .7; }
+  .inline-input:focus { border-bottom-style: solid; border-bottom-color: var(--neon); }
+  .id-hint { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-top: 18px; text-align: center; }
 
   /* ---- Result strip (tall) ------------------------------------------- */
   .strip-wrap { flex: 1; display: flex; align-items: center; justify-content: center;
@@ -210,14 +233,17 @@
     </div>
   </section>
 
-  <!-- SCREEN 2b: confirm / enter identity -->
+  <!-- SCREEN 2b: confirm / enter identity (editable inline sentence) -->
   <section id="screen-identify" class="screen">
     <div class="id-card">
-      <div class="id-title" id="idTitle">Tell us who you are</div>
-      <label class="id-label">Name</label>
-      <input id="inputName" class="id-input" type="text" placeholder="Your name" autocomplete="off" />
-      <label class="id-label">Company</label>
-      <input id="inputCompany" class="id-input" type="text" placeholder="Your company" autocomplete="off" />
+      <div class="id-sentence">
+        <span id="idLead">Is</span>
+        <input id="inputName" class="inline-input" type="text" placeholder="your name" autocomplete="off" />
+        <span class="id-word">from</span>
+        <input id="inputCompany" class="inline-input" type="text" placeholder="your company" autocomplete="off" />
+        <span id="idTail">?</span>
+      </div>
+      <div class="id-hint" id="idHint">Tap a name to fix it</div>
     </div>
     <div class="btn-row">
       <button class="btn-ghost" id="btnIdBack">Back</button>
@@ -368,15 +394,29 @@ $("btnStylize").addEventListener("click", async () => {
   stopProgress();
   $("inputName").value = data.name || "";
   $("inputCompany").value = data.company || "";
-  // Pre-fill the question if we recognized someone; otherwise a neutral prompt.
+  // Recognized -> "Is [name] from [company]?"; not recognized -> "You're [..]"
+  // with empty blanks they fill in. Either way the blanks edit inline.
   if (data.name) {
-    const co = data.company ? (" from " + data.company) : "";
-    $("idTitle").textContent = "Is " + data.name + co + "?";
+    $("idLead").textContent = "Is";
+    $("idTail").textContent = "?";
+    $("idHint").textContent = "Not you? Tap a name to fix it";
   } else {
-    $("idTitle").textContent = "Tell us who you are";
+    $("idLead").textContent = "You're";
+    $("idTail").textContent = "";
+    $("idHint").textContent = "Tap the blanks to enter your details";
   }
+  autosize($("inputName"));
+  autosize($("inputCompany"));
   show("identify");
 });
+
+// Make the inline inputs grow/shrink to fit their text (or placeholder).
+function autosize(el) {
+  const len = (el.value || el.placeholder || "").length;
+  el.size = Math.max(len + 1, 4);
+}
+$("inputName").addEventListener("input", (e) => autosize(e.target));
+$("inputCompany").addEventListener("input", (e) => autosize(e.target));
 
 $("btnIdBack").addEventListener("click", () => show("confirm"));
 
