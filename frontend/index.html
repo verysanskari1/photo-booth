@@ -23,14 +23,15 @@
   }
 
   :root {
-    /* Palette pulled from the Innovator Awards standee */
-    --indigo-deep: #1b0f33;
-    --indigo: #2a1850;
+    /* Palette pulled from image 4: black ground, purple smoke, neon-green accent */
+    --bg: #000000;
+    --bg-soft: #0c0613;
     --purple: #6a2a96;
-    --magenta: #a64bb0;
-    --neon: #c8ff4d;       /* the green pill / accent */
-    --ink: #140d22;
-    --white: #ffffff;
+    --magenta: #b146c2;
+    --neon: #b9e84f;       /* accent green */
+    --ink: #0a0a0a;
+    --white: #f4f1ea;
+    --muted: #b9a9d6;
     --serif: "Kalice", "Georgia", "Times New Roman", serif;
     --sans: "Satoshi", -apple-system, "Segoe UI", sans-serif;
   }
@@ -39,27 +40,28 @@
 
   html, body {
     margin: 0; padding: 0; height: 100%;
-    background: var(--indigo-deep);
+    background: var(--bg);
     font-family: var(--sans);
     color: var(--white);
     overflow: hidden;
     -webkit-user-select: none; user-select: none;
   }
 
-  /* Portrait stage, sized for an iPad held upright. */
+  /* Portrait stage, sized for an iPad held upright. Black with a faint purple
+     glow rising from the bottom, echoing the smoke artwork. */
   #stage {
     position: relative;
     width: 100vw; height: 100vh;
     max-width: 900px; margin: 0 auto;
     background:
-      radial-gradient(120% 80% at 50% 0%, var(--indigo) 0%, var(--indigo-deep) 60%),
-      linear-gradient(180deg, var(--indigo-deep) 0%, #2c1145 55%, #4a1d63 100%);
+      radial-gradient(90% 55% at 50% 118%, rgba(150,50,170,.55) 0%, rgba(80,30,120,.18) 38%, rgba(0,0,0,0) 68%),
+      var(--bg);
     display: flex; flex-direction: column;
     overflow: hidden;
   }
 
-  /* Neon green corner brackets — a nod to the terminal aesthetic. */
-  .bracket { position: absolute; width: 46px; height: 46px; border: 4px solid var(--neon); z-index: 5; pointer-events: none; }
+  /* Neon green corner brackets. */
+  .bracket { position: absolute; width: 46px; height: 46px; border: 3px solid var(--neon); z-index: 5; pointer-events: none; opacity: .85; }
   .bracket.tl { top: 22px; left: 22px; border-right: none; border-bottom: none; }
   .bracket.tr { top: 22px; right: 22px; border-left: none; border-bottom: none; }
   .bracket.bl { bottom: 22px; left: 22px; border-right: none; border-top: none; }
@@ -68,16 +70,12 @@
   /* ---- Header --------------------------------------------------------- */
   header { text-align: center; padding: 34px 24px 10px; z-index: 2; }
   header .eyebrow {
-    font-family: var(--sans); font-weight: 700; letter-spacing: .18em;
-    font-size: 13px; text-transform: uppercase; color: var(--neon); margin-bottom: 10px;
+    font-family: var(--sans); font-weight: 700; letter-spacing: .14em;
+    font-size: 14px; color: var(--neon); margin-bottom: 10px;
   }
   header h1 {
     font-family: var(--serif); font-weight: 400; line-height: .98;
     font-size: clamp(34px, 8vw, 60px); margin: 0; color: var(--white);
-  }
-  header .tagline {
-    font-family: var(--sans); font-weight: 500; letter-spacing: .12em;
-    font-size: 12px; text-transform: uppercase; color: #d9c4ff; margin-top: 12px; opacity: .9;
   }
 
   /* ---- Screens -------------------------------------------------------- */
@@ -132,9 +130,22 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   #loadingMsg {
     font-family: var(--sans); font-weight: 500; font-size: 19px;
-    color: #e7d8ff; min-height: 26px; text-align: center; max-width: 460px;
+    color: var(--muted); min-height: 26px; text-align: center; max-width: 460px;
   }
-  .loading-title { font-family: var(--serif); font-size: 30px; margin-bottom: 8px; }
+  .loading-title { font-family: var(--serif); font-size: 32px; margin-bottom: 8px; color: var(--white); }
+  .progress {
+    width: min(420px, 70vw); height: 8px; margin-top: 26px;
+    background: rgba(255,255,255,.10); border-radius: 999px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, var(--purple), var(--neon));
+    transition: width .4s ease;
+  }
+  .progress-pct {
+    font-family: var(--sans); font-weight: 700; font-size: 14px;
+    color: var(--neon); margin-top: 10px; letter-spacing: .04em;
+  }
 
   /* ---- Error ---------------------------------------------------------- */
   .error-box { text-align: center; max-width: 480px; }
@@ -148,14 +159,13 @@
     width: 100%; max-width: 560px; background: rgba(255,255,255,.05);
     border: 2px solid rgba(200,255,77,.30); border-radius: 18px; padding: 28px 26px;
   }
-  .id-title { font-family: var(--serif); font-size: 30px; color: var(--white); }
-  .id-sub { font-family: var(--sans); font-size: 14px; color: #d9c4ff; margin: 6px 0 18px; }
-  .id-label { display: block; font-family: var(--sans); font-weight: 700; font-size: 12px;
-              letter-spacing: .12em; text-transform: uppercase; color: var(--neon);
-              margin: 16px 0 6px; }
+  .id-title { font-family: var(--serif); font-size: 32px; color: var(--white); line-height: 1.1; }
+  .id-sub { font-family: var(--sans); font-size: 14px; color: var(--muted); margin: 8px 0 18px; }
+  .id-label { display: block; font-family: var(--sans); font-weight: 700; font-size: 13px;
+              letter-spacing: .04em; color: var(--neon); margin: 16px 0 6px; }
   .id-input {
     width: 100%; font-family: var(--sans); font-size: 20px; color: var(--white);
-    background: rgba(0,0,0,.25); border: 2px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.22);
     border-radius: 12px; padding: 14px 16px; outline: none;
   }
   .id-input:focus { border-color: var(--neon); }
@@ -167,13 +177,6 @@
     max-height: 100%; max-width: 86%; width: auto; height: auto;
     border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.5); object-fit: contain;
   }
-
-  footer { text-align: center; padding: 0 0 26px; z-index: 2; }
-  footer .pill {
-    display: inline-block; background: var(--neon); color: var(--ink);
-    font-family: var(--sans); font-weight: 700; font-size: 15px;
-    padding: 10px 26px; border-radius: 999px; letter-spacing: .03em;
-  }
 </style>
 </head>
 <body>
@@ -184,7 +187,6 @@
   <header>
     <div class="eyebrow">HackerRank &nbsp;×&nbsp; ET HRWorld</div>
     <h1>Innovator Awards<br />Photobooth</h1>
-    <div class="tagline">Built different. Shipped with impact.</div>
   </header>
 
   <!-- SCREEN 1: live camera -->
@@ -193,7 +195,7 @@
       <video id="video" autoplay playsinline muted></video>
     </div>
     <div class="btn-row">
-      <button class="btn-capture" id="btnCapture">CAPTURE</button>
+      <button class="btn-capture" id="btnCapture">Capture</button>
     </div>
   </section>
 
@@ -203,32 +205,33 @@
       <img id="previewImg" alt="Your photo" />
     </div>
     <div class="btn-row">
-      <button class="btn-ghost" id="btnRetake">RETAKE</button>
-      <button class="btn-primary" id="btnStylize">CONTINUE</button>
+      <button class="btn-ghost" id="btnRetake">Retake</button>
+      <button class="btn-primary" id="btnStylize">Continue</button>
     </div>
   </section>
 
   <!-- SCREEN 2b: confirm / enter identity -->
   <section id="screen-identify" class="screen">
     <div class="id-card">
-      <div class="id-title">Who's in the picture?</div>
-      <div class="id-sub" id="idHint">Confirm your details for the strip</div>
+      <div class="id-title" id="idTitle">Tell us who you are</div>
       <label class="id-label">Name</label>
       <input id="inputName" class="id-input" type="text" placeholder="Your name" autocomplete="off" />
       <label class="id-label">Company</label>
       <input id="inputCompany" class="id-input" type="text" placeholder="Your company" autocomplete="off" />
     </div>
     <div class="btn-row">
-      <button class="btn-ghost" id="btnIdBack">BACK</button>
-      <button class="btn-primary" id="btnMakeStrip">MAKE MY STRIP</button>
+      <button class="btn-ghost" id="btnIdBack">Back</button>
+      <button class="btn-primary" id="btnMakeStrip">Print My Strip</button>
     </div>
   </section>
 
   <!-- SCREEN 3: loading -->
   <section id="screen-loading" class="screen">
     <div class="spinner"></div>
-    <div class="loading-title">Making magic…</div>
+    <div class="loading-title" id="loadingTitle">Making magic</div>
     <div id="loadingMsg">Warming up the pixels</div>
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="progress-pct" id="progressPct">0%</div>
   </section>
 
   <!-- SCREEN 4: result (tall photo strip) -->
@@ -237,8 +240,8 @@
       <img id="resultImg" alt="Your photo strip" />
     </div>
     <div class="btn-row">
-      <button class="btn-ghost" id="btnNew">NEW</button>
-      <button class="btn-primary" id="btnPrint">PRINT</button>
+      <button class="btn-ghost" id="btnNew">New</button>
+      <button class="btn-primary" id="btnPrint">Print</button>
     </div>
   </section>
 
@@ -246,15 +249,13 @@
   <section id="screen-error" class="screen">
     <div class="error-box">
       <div class="x">⚠</div>
-      <h2>Something glitched</h2>
+      <h2>Something Glitched</h2>
       <div id="errorMsg">Unknown error.</div>
       <div class="btn-row" style="max-width:320px;margin:0 auto;">
-        <button class="btn-primary" id="btnErrorRetry">TRY AGAIN</button>
+        <button class="btn-primary" id="btnErrorRetry">Try Again</button>
       </div>
     </div>
   </section>
-
-  <footer><span class="pill">www.hackerrank.com</span></footer>
 </div>
 
 <!-- Hidden canvas used to grab + un-mirror the captured frame -->
@@ -271,7 +272,7 @@
 // backend's public https URL, e.g. "https://your-backend.ngrok.app".
 const BACKEND_URL = "";
 
-// Capture as a square (1:1) — the printed photo and the fal output are square.
+// Capture as a square (1:1). The printed photo and the fal output are square.
 const CAPTURE_W = 1080, CAPTURE_H = 1080;
 
 /* ====================================================================== *
@@ -312,9 +313,9 @@ async function startCamera() {
   }
 }
 
-/* Grab the current video frame into the canvas as a portrait 3:4 crop, and
-   UN-MIRROR it (the preview is mirrored for a natural selfie feel, but the
-   photo we send should be true orientation). */
+/* Grab the current video frame into the canvas as a centered square crop. The
+   preview and capture are both un-mirrored (true orientation), so what the guest
+   sees is exactly what gets sent. */
 function captureFrame() {
   const canvas = $("canvas");
   canvas.width = CAPTURE_W;
@@ -347,34 +348,43 @@ $("btnCapture").addEventListener("click", () => {
 
 $("btnRetake").addEventListener("click", () => show("camera"));
 
-// CONTINUE -> run face recognition, then show the (pre-filled) confirm screen.
+// Continue -> run face recognition (separate, quick step), then show the
+// pre-filled confirm screen. Recognition and the slow strip generation are kept
+// as two sequential steps so neither feels like one long hang.
 $("btnStylize").addEventListener("click", async () => {
   if (!capturedBlob) { showError("No photo captured."); return; }
-  $("loadingMsg").textContent = "Looking you up…";
-  $("idHint").textContent = "Confirm your details for the strip";
+  $("loadingTitle").textContent = "Looking you up";
+  $("loadingMsg").textContent = "Matching your face";
+  startProgress(6);            // recognition is quick
   show("loading");
+  let data = {};
   try {
     const form = new FormData();
     form.append("photo", capturedBlob, "photo.jpg");
     const res = await fetch(BACKEND_URL + "/identify", { method: "POST", body: form });
-    const data = res.ok ? await res.json() : {};
-    $("inputName").value = data.name || "";
-    $("inputCompany").value = data.company || "";
-    if (data.matched) $("idHint").textContent = "We think we recognized you — edit if needed";
-  } catch (e) {
-    // Recognition is best-effort; just show the empty form.
-    $("inputName").value = "";
-    $("inputCompany").value = "";
+    data = res.ok ? await res.json() : {};
+  } catch (e) { /* recognition is best-effort */ }
+  stopProgress();
+  $("inputName").value = data.name || "";
+  $("inputCompany").value = data.company || "";
+  // Pre-fill the question if we recognized someone; otherwise a neutral prompt.
+  if (data.name) {
+    const co = data.company ? (" from " + data.company) : "";
+    $("idTitle").textContent = "Is " + data.name + co + "?";
+  } else {
+    $("idTitle").textContent = "Tell us who you are";
   }
   show("identify");
 });
 
 $("btnIdBack").addEventListener("click", () => show("confirm"));
 
-// MAKE MY STRIP -> build the two-pose strip with the confirmed name.
+// Print My Strip -> build the two-pose strip with the confirmed name.
 $("btnMakeStrip").addEventListener("click", () => {
   if (!capturedBlob) { showError("No photo captured."); return; }
+  $("loadingTitle").textContent = "Making magic";
   startLoadingMessages();
+  startProgress(55);           // two stylizations take a while
   show("loading");
   makeStrip(capturedBlob, $("inputName").value.trim(), $("inputCompany").value.trim());
 });
@@ -391,18 +401,21 @@ function resetToCamera() {
 }
 
 /* ====================================================================== *
- *  Loading messages (rotating, fun)
+ *  Loading: rolling status words + a progress bar
  * ====================================================================== */
 const LOADING_MESSAGES = [
-  "Warming up the pixels…",
-  "Teaching the AI about good lighting…",
-  "Mixing indigo and magenta…",
-  "Crosshatching the shadows…",
-  "Dithering with style…",
-  "Counting your innovation points…",
-  "Cutting you out of the background…",
-  "Placing you on the big stage…",
-  "Almost there — looking sharp!",
+  "Tokenizing",
+  "Clauding",
+  "Thinking",
+  "Innovating",
+  "Dithering the shadows",
+  "Mixing indigo and magenta",
+  "Crosshatching highlights",
+  "Composing your couplet",
+  "Cutting you from the background",
+  "Placing you on the stage",
+  "Rendering your strip",
+  "Almost there, looking sharp",
 ];
 let loadingTimer = null;
 function startLoadingMessages() {
@@ -412,9 +425,33 @@ function startLoadingMessages() {
   loadingTimer = setInterval(() => {
     i = (i + 1) % LOADING_MESSAGES.length;
     $("loadingMsg").textContent = LOADING_MESSAGES[i];
-  }, 2600);
+  }, 1600);
 }
 function stopLoadingMessages() { clearInterval(loadingTimer); }
+
+/* Smooth fake-but-honest progress: creep toward 95% over `etaSeconds`, then
+   jump to 100% when the request actually finishes. */
+let progressTimer = null, progressVal = 0;
+function startProgress(etaSeconds) {
+  progressVal = 0;
+  setProgress(0);
+  clearInterval(progressTimer);
+  const stepMs = 250;
+  const perStep = 95 / ((etaSeconds * 1000) / stepMs);
+  progressTimer = setInterval(() => {
+    progressVal = Math.min(95, progressVal + perStep);
+    setProgress(progressVal);
+  }, stepMs);
+}
+function setProgress(pct) {
+  const p = Math.round(pct);
+  $("progressBar").style.width = p + "%";
+  $("progressPct").textContent = p + "%";
+}
+function stopProgress() {
+  clearInterval(progressTimer);
+  setProgress(100);
+}
 
 /* ====================================================================== *
  *  Talk to the backend
@@ -432,10 +469,12 @@ async function makeStrip(blob, name, company) {
     }
     const data = await res.json();
     stopLoadingMessages();
+    stopProgress();
     $("resultImg").src = data.image_url;
     show("result");
   } catch (err) {
     stopLoadingMessages();
+    stopProgress();
     showError(err.message || String(err));
   }
 }

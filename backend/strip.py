@@ -1,24 +1,25 @@
 """
-strip.py — assemble the print-ready 2x6 inch photo strip (Phase 4).
+strip.py — assemble the print-ready 2x6 inch photo strip.
 
-Layout, top to bottom (600 x 1800 px @ 300dpi = 2" x 6"):
+Canvas is 600 x 1800 px (2" x 6" @ 300dpi). Layout, top to bottom:
 
-    +------------------+  0
-    |   header / logo  |  170
-    +------------------+
-    |   POSE 1 photo   |  770   (600x600 square)
-    +------------------+
-    |  couplet + name  |  1070  (middle text block)
-    +------------------+
-    |   POSE 2 photo   |  1670  (600x600 square)
-    +------------------+
-    |   footer / url   |  1800
-    +------------------+
+    +------------------+  0     header band
+    |   POSE 1 photo   |  170   (square, 600x600)   PHOTO_TOP_BOX
+    |   verse + name   |  770   (300 tall)          VERSE_BOX
+    |   POSE 2 photo   |  1070  (square, 600x600)   PHOTO_BOT_BOX
+    +------------------+  1670  footer band
+                          1800
 
-build_strip() takes two already-composited square portraits (different poses),
-the guest's name, and the two couplet lines, and returns the finished strip image.
-Fonts: uses Kalice (serif) / Satoshi (sans) if present in frontend/fonts or
-backend/fonts, otherwise falls back to bundled system fonts.
+TEMPLATE MODE (optional): drop a full-strip artwork at
+`backend/strip_template.png` (any size, it's fit to 600x1800). If present it is
+used as the base layer, and we just paste the two photos into the photo boxes
+and draw the verse + name into the verse box. Design your template so those
+three regions (see the *_BOX coordinates below) are left clear. If no template
+exists, a clean built-in design is drawn instead.
+
+Fonts: uses Kalice (serif) / Satoshi (sans) if you drop the files into
+backend/fonts/ or frontend/fonts/, otherwise falls back to system fonts.
+No em dashes, no URL (by request).
 """
 
 from __future__ import annotations
@@ -29,23 +30,28 @@ from PIL import Image, ImageDraw, ImageFont
 
 BACKEND_DIR = Path(__file__).resolve().parent
 _FONT_DIRS = [BACKEND_DIR / "fonts", BACKEND_DIR.parent / "frontend" / "fonts"]
+STRIP_TEMPLATE = BACKEND_DIR / "strip_template.png"
 
-# Canvas + section heights (px).
 STRIP_W, STRIP_H = 600, 1800
 HEADER_H = 170
 PHOTO_H = 600
 FOOTER_H = 130
-COUPLET_H = STRIP_H - HEADER_H - 2 * PHOTO_H - FOOTER_H  # = 300
+VERSE_H = STRIP_H - HEADER_H - 2 * PHOTO_H - FOOTER_H  # = 300
 
-# Palette (matches the booth).
-INDIGO_DEEP = (20, 12, 40)
-PANEL = (32, 18, 58)
-NEON = (200, 255, 77)
-WHITE = (245, 240, 255)
-MUTED = (200, 180, 235)
+# The three regions photos/text occupy (x, y, w, h). Match these in any template.
+PHOTO_TOP_BOX = (0, HEADER_H, STRIP_W, PHOTO_H)
+VERSE_BOX = (40, HEADER_H + PHOTO_H, STRIP_W - 80, VERSE_H)
+PHOTO_BOT_BOX = (0, HEADER_H + PHOTO_H + VERSE_H, STRIP_W, PHOTO_H)
+
+# Palette (black ground, neon-green accent, light text).
+BLACK = (0, 0, 0)
+PANEL = (12, 8, 20)
+NEON = (185, 232, 79)
+WHITE = (244, 241, 234)
+MUTED = (185, 169, 214)
 
 
-def _font(names: list[str], size: int, system_fallback: str) -> ImageFont.FreeTypeFont:
+def _font(names, size, system_fallback):
     for d in _FONT_DIRS:
         for n in names:
             p = d / n
@@ -60,15 +66,15 @@ def _font(names: list[str], size: int, system_fallback: str) -> ImageFont.FreeTy
         return ImageFont.load_default()
 
 
-def _serif(size: int) -> ImageFont.FreeTypeFont:
+def _serif(size):
     return _font(
-        ["Kalice.ttf", "Kalice-Regular.ttf"],
+        ["Kalice.ttf", "Kalice-Regular.ttf", "Kalice.otf"],
         size,
-        "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
     )
 
 
-def _sans(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+def _sans(size, bold=False):
     return _font(
         ["Satoshi-Bold.ttf" if bold else "Satoshi.ttf"],
         size,
@@ -83,52 +89,69 @@ def _center(draw, cx, y, text, font, fill):
     draw.text((cx - (b[2] - b[0]) // 2, y), text, font=font, fill=fill)
 
 
-def _fit_square(img: Image.Image, size: int) -> Image.Image:
-    """Center-crop `img` to a square and resize to size x size."""
+def _fit_box(img, box):
+    """Center-crop `img` to the box aspect and resize to fill the box exactly."""
+    bx, by, bw, bh = box
     img = img.convert("RGB")
     w, h = img.size
-    s = min(w, h)
-    img = img.crop(((w - s) // 2, (h - s) // 2, (w - s) // 2 + s, (h - s) // 2 + s))
-    return img.resize((size, size), Image.LANCZOS)
+    scale = max(bw / w, bh / h)
+    nw, nh = int(w * scale), int(h * scale)
+    img = img.resize((nw, nh), Image.LANCZOS)
+    left, top = (nw - bw) // 2, (nh - bh) // 2
+    return img.crop((left, top, left + bw, top + bh))
 
 
-def build_strip(pose1: Image.Image, pose2: Image.Image, name: str, couplet: list[str]) -> Image.Image:
-    """Compose the full strip. `couplet` is a list of (usually two) lines."""
-    strip = Image.new("RGB", (STRIP_W, STRIP_H), INDIGO_DEEP)
-    draw = ImageDraw.Draw(strip)
+def _draw_builtin_base():
+    """The default strip artwork when no template is supplied."""
+    base = Image.new("RGB", (STRIP_W, STRIP_H), BLACK)
+    draw = ImageDraw.Draw(base)
     cx = STRIP_W // 2
 
-    # --- Header -------------------------------------------------------------
-    _center(draw, cx, 34, "HACKERRANK  ×  ET HRWORLD", _sans(20, bold=True), NEON)
-    _center(draw, cx, 70, "Innovator Awards", _serif(54), WHITE)
-    _center(draw, cx, 132, "PHOTOBOOTH 2026", _sans(20, bold=True), MUTED)
+    # Header
+    _center(draw, cx, 36, "HackerRank  x  ET HRWorld", _sans(20, bold=True), NEON)
+    _center(draw, cx, 72, "Innovator Awards", _serif(50), WHITE)
+    _center(draw, cx, 130, "Photobooth 2026", _sans(18, bold=True), MUTED)
 
-    # --- Pose 1 -------------------------------------------------------------
-    y1 = HEADER_H
-    strip.paste(_fit_square(pose1, PHOTO_H), (0, y1))
+    # Verse panel with neon hairlines top/bottom
+    vy = HEADER_H + PHOTO_H
+    draw.rectangle([0, vy, STRIP_W, vy + VERSE_H], fill=PANEL)
+    draw.rectangle([0, vy, STRIP_W, vy + 3], fill=NEON)
+    draw.rectangle([0, vy + VERSE_H - 3, STRIP_W, vy + VERSE_H], fill=NEON)
+    return base
 
-    # --- Couplet block ------------------------------------------------------
-    cy = HEADER_H + PHOTO_H
-    draw.rectangle([0, cy, STRIP_W, cy + COUPLET_H], fill=PANEL)
-    draw.rectangle([0, cy, STRIP_W, cy + 4], fill=NEON)                       # top rule
-    draw.rectangle([0, cy + COUPLET_H - 4, STRIP_W, cy + COUPLET_H], fill=NEON)  # bottom rule
 
-    line_font = _serif(34)
-    lines = [ln for ln in couplet if ln]
-    block_h = len(lines) * 46
-    ty = cy + (COUPLET_H - block_h - 50) // 2  # leave room for the name line below
+def _draw_verse(base, name, lines):
+    """Draw the 3-line verse + name attribution centered in the verse box."""
+    draw = ImageDraw.Draw(base)
+    bx, by, bw, bh = VERSE_BOX
+    cx = bx + bw // 2
+
+    verse_font = _serif(46)
+    name_font = _sans(28, bold=True)
+    line_gap = 60
+    lines = [ln for ln in lines if ln]
+
+    block_h = len(lines) * line_gap + 46  # verse lines + name line
+    ty = by + max(18, (bh - block_h) // 2)
     for ln in lines:
-        _center(draw, cx, ty, ln, line_font, WHITE)
-        ty += 46
-    _center(draw, cx, ty + 10, f"— {name}", _sans(26, bold=True), NEON)
+        _center(draw, cx, ty, ln, verse_font, WHITE)
+        ty += line_gap
+    if name:
+        _center(draw, cx, ty + 12, name, name_font, NEON)
 
-    # --- Pose 2 -------------------------------------------------------------
-    y2 = HEADER_H + PHOTO_H + COUPLET_H
-    strip.paste(_fit_square(pose2, PHOTO_H), (0, y2))
 
-    # --- Footer -------------------------------------------------------------
-    fy = STRIP_H - FOOTER_H
-    draw.rectangle([0, fy, STRIP_W, STRIP_H], fill=INDIGO_DEEP)
-    _center(draw, cx, fy + 46, "www.hackerrank.com", _sans(28, bold=True), NEON)
+def build_strip(pose1: Image.Image, pose2: Image.Image, name: str, lines: list[str]) -> Image.Image:
+    """Compose the full strip. `lines` is the (3-line) verse."""
+    if STRIP_TEMPLATE.exists():
+        print("[strip] using template:", STRIP_TEMPLATE.name)
+        base = Image.open(STRIP_TEMPLATE).convert("RGB").resize((STRIP_W, STRIP_H), Image.LANCZOS)
+    else:
+        base = _draw_builtin_base()
 
-    return strip
+    # Paste the two photos into their boxes.
+    base.paste(_fit_box(pose1, PHOTO_TOP_BOX), (PHOTO_TOP_BOX[0], PHOTO_TOP_BOX[1]))
+    base.paste(_fit_box(pose2, PHOTO_BOT_BOX), (PHOTO_BOT_BOX[0], PHOTO_BOT_BOX[1]))
+
+    # Draw the verse + name.
+    _draw_verse(base, name, lines)
+    return base

@@ -108,6 +108,30 @@ immediately; drop in one reference headshot per real attendee + edit
 `attendees.csv` (`image,name,company`), then **restart the backend**. If
 InsightFace isn't installed or no face matches, the guest just types their name.
 
+### Custom strip artwork (optional)
+
+By default the strip is drawn with a clean built-in design. To use your own full
+artwork, drop a **`backend/strip_template.png`** (fit to 600×1800). The booth uses
+it as the base and only pastes the two photos + verse into these regions, so
+leave them clear in your design (coordinates in `strip.py`):
+
+- top photo:    x0 y170, 600×600
+- verse block:  x40 y770, 520×300  (light text + neon name drawn here)
+- bottom photo: x0 y1070, 600×600
+
+### Fonts (Kalice + Satoshi)
+
+Drop `Kalice.ttf` and `Satoshi.ttf` (and `Satoshi-Bold.ttf`) into
+**`frontend/fonts/`**. The web page loads them via `@font-face`, and the strip
+generator picks them up from the same folder. Without them, system serif/sans
+fallbacks are used.
+
+### The verse
+
+A short artful **haiku** (3 lines) themed around tech / building / hiring, with
+the guest's name shown as an attribution beneath it. Tune the wording in
+`couplet.py` (LLM prompt + offline templates).
+
 ### New endpoints
 - `POST /identify` (photo) → `{name, company, confidence, matched}`
 - `POST /generate_strip` (photo, name, company) → `{image_url, name, couplet}`

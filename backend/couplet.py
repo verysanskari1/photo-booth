@@ -1,12 +1,15 @@
 """
-couplet.py — generate a short personalized 2-line couplet for the photo strip.
+couplet.py — generate a short, artful verse for the photo strip.
 
-Primary path: OpenRouter (an OpenAI-compatible API gateway). Set OPENROUTER_API_KEY
-and optionally OPENROUTER_MODEL. We use the official `openai` SDK pointed at
-OpenRouter's base URL.
+Style: a haiku-ish 3-line micro-poem themed around tech, building, and hiring /
+talent. Evocative, a little poetic, not cheesy. The guest's name is shown
+separately on the strip as an attribution, so the poem itself stays clean.
 
-Fallback path: if there's no key (or the call fails), we use hand-written couplet
-templates with the guest's name slotted in — so the booth always works offline.
+Primary path: OpenRouter (OpenAI-compatible). Set OPENROUTER_API_KEY and
+optionally OPENROUTER_MODEL. Fallback: hand-written haikus, so the booth always
+works offline.
+
+No em dashes anywhere (by request).
 """
 
 from __future__ import annotations
@@ -18,56 +21,53 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Offline fallback couplets. {name} is filled in. Keep each to two short lines.
+# Offline fallback haikus — tech / hiring / building themed, no names needed.
 _TEMPLATES = [
-    ["Here's to {name}, sharp and bold —", "an innovator's story told."],
-    ["{name} shipped with heart and drive,", "watch the future come alive."],
-    ["For {name}, who dares to build,", "with vision bright and purpose filled."],
-    ["{name} codes a brighter day,", "and leads the bold, unbeaten way."],
-    ["To {name} — relentless, true,", "the next big thing begins with you."],
+    ["Lines of code take flight,", "a quiet spark becomes flame,", "futures rewritten."],
+    ["Talent finds its place,", "ideas bloom in the night air,", "the build never ends."],
+    ["Hands that shape the new,", "between the zeros and ones,", "humans, still the spark."],
+    ["Hire for the fire,", "the curious change the world,", "ship, learn, rise again."],
+    ["Bold minds in the loop,", "every commit a promise,", "tomorrow compiles."],
+    ["Between scale and soul,", "the best teams are quietly", "building what comes next."],
 ]
 
 
-def _llm_couplet(name: str, company: str | None) -> list[str]:
-    """Ask an LLM (via OpenRouter) for a fresh couplet. Returns two lines."""
+def _llm_verse(name: str, company: str | None) -> list[str]:
+    """Ask an LLM (via OpenRouter) for a 3-line haiku. Returns three lines."""
     from openai import OpenAI
 
     client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
-    who = name + (f" from {company}" if company else "")
+    who = name + (f", who works at {company}" if company else "")
     prompt = (
-        f"Write a warm, classy, slightly witty 2-line rhyming couplet celebrating "
-        f"{who} at a tech 'Innovator Awards' event. Mention the first name. Keep it "
-        f"under 18 words total, professional and uplifting. Return ONLY the two "
-        f"lines, each on its own line, no quotes or extra text."
+        "Write one artful haiku (three short lines, roughly 5-7-5 syllables) about "
+        "innovation, building great products, and brilliant people in tech and "
+        "hiring. Make it evocative and a little poetic, never cheesy or corporate. "
+        f"You may subtly nod to {who}, but keep it tasteful and optional. "
+        "Do NOT use em dashes or hyphens as dashes. Return ONLY the three lines, "
+        "each on its own line, with no title, numbering, or quotes."
     )
     resp = client.chat.completions.create(
         model=OPENROUTER_MODEL,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=80,
-        temperature=0.9,
+        temperature=0.95,
     )
     text = resp.choices[0].message.content.strip()
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    # Be defensive: make sure we end up with exactly two lines.
-    if len(lines) >= 2:
-        return lines[:2]
-    if len(lines) == 1:
-        return [lines[0], ""]
-    raise ValueError("empty couplet response")
-
-
-def _template_couplet(name: str) -> list[str]:
-    template = random.choice(_TEMPLATES)
-    return [line.format(name=name) for line in template]
+    lines = [ln.strip().strip('"').replace(" — ", ", ").replace("—", ",") for ln in text.splitlines() if ln.strip()]
+    if len(lines) >= 3:
+        return lines[:3]
+    if len(lines) == 2:
+        return lines + [""]
+    raise ValueError("verse too short")
 
 
 def make_couplet(name: str | None, company: str | None = None) -> list[str]:
-    """Return a two-line couplet for `name`. Never raises."""
-    name = (name or "Friend").strip().split()[0]  # first name, keeps couplets short
+    """Return a 3-line verse. Never raises. (Name kept for API compatibility.)"""
+    first = (name or "Friend").strip().split()[0] if name else "Friend"
     if OPENROUTER_API_KEY:
         try:
-            print("[couplet] generating via OpenRouter:", OPENROUTER_MODEL)
-            return _llm_couplet(name, company)
+            print("[verse] generating via OpenRouter:", OPENROUTER_MODEL)
+            return _llm_verse(first, company)
         except Exception as exc:  # noqa: BLE001 - fall back gracefully
-            print("[couplet] OpenRouter failed, using template:", exc)
-    return _template_couplet(name)
+            print("[verse] OpenRouter failed, using template:", exc)
+    return random.choice(_TEMPLATES)
