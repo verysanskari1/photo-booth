@@ -4,6 +4,7 @@
 fastapi
 uvicorn[standard]
 python-multipart      # lets FastAPI accept multipart/form-data file uploads
+python-dotenv         # loads keys from a .env file so you don't re-export them
 fal-client            # official fal.ai client; reads the FAL_KEY env var
 Pillow                # local image compositing + strip assembly
 

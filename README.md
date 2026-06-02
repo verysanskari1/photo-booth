@@ -143,6 +143,51 @@ LLM call is fractions of a cent (or free with templates).
 
 ---
 
+## Running it the easy way (no re-typing env vars)
+
+1. Copy `backend/.env.example` to `backend/.env` and fill in your keys once.
+2. Then just:
+
+```bash
+cd backend
+./start.sh
+```
+
+`start.sh` creates the venv (first run), installs deps, loads `.env`, and starts
+the server on http://localhost:8000. No `export` or `source` needed each time.
+
+## Hosting it for the event (and "do I need a laptop?")
+
+**Key point:** the iPad only runs the *web page*. All the heavy work — fal calls,
+face recognition, the strip — runs on the **backend**. So the question is just:
+where does the backend run?
+
+- **Hosted in the cloud (recommended for the event):** deploy the backend once to
+  a small always-on server. Then on event day you only need the **iPad + internet**
+  — open the hosted URL and go. **No laptop at the venue.** Face recognition runs
+  on the server. A `Dockerfile` is included so it deploys to most platforms.
+  InsightFace needs ~1–2 GB RAM, so pick a box with ≥2 GB (free tiers are often
+  too small).
+- **One laptop at the venue:** run `./start.sh` on a laptop and expose it over
+  https with a tunnel (below). The iPad talks to the laptop. Works offline-ish,
+  but the laptop must stay on and on the same network/tunnel.
+
+### Exposing over https (camera needs https or localhost)
+
+For a quick tunnel during testing or a laptop-at-venue setup:
+
+```bash
+# install ngrok, then:
+ngrok http 8000
+```
+
+Set `PUBLIC_HOST` in `.env` to the https URL ngrok prints, and set
+`BACKEND_URL` in `frontend/index.html` to the same URL **if** the frontend is
+served from somewhere else. (When the backend serves the page — the default —
+they're same-origin and you can leave `BACKEND_URL` empty.)
+
+---
+
 ## Roadmap
 
 - **Phase 1 — Backend pipeline** ✅
@@ -150,5 +195,5 @@ LLM call is fractions of a cent (or free with templates).
 - **Phase 4 — Print-ready 2×6" strip (two poses + couplet block)** ✅
 - **Phase 5 — Face recognition against attendee DB** ✅
 - **Phase 6 — Personalized couplet via LLM (OpenRouter)** ✅
-- Phase 3 — Full event README (https/ngrok setup)
-- Phase 7 — DNP DS620A dye-sub strip printing
+- **Phase 3 — Easy-run (.env + start.sh), https/ngrok + hosting notes** ✅
+- Phase 7 — DNP DS620A dye-sub strip printing (send the strip to the printer)

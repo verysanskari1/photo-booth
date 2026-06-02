@@ -29,6 +29,15 @@ import sys
 import uuid
 from pathlib import Path
 
+# Load environment variables from a local .env file (FAL_KEY, OPENROUTER_API_KEY,
+# PUBLIC_HOST, ...) so you set them once instead of exporting every session.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:  # noqa: BLE001 - dotenv is optional
+    pass
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
