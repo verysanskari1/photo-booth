@@ -237,13 +237,12 @@
   <section id="screen-identify" class="screen">
     <div class="id-card">
       <div class="id-sentence">
-        <span id="idLead">Is</span>
+        <span id="idLead">Is this</span>
         <input id="inputName" class="inline-input" type="text" placeholder="your name" autocomplete="off" />
         <span class="id-word">from</span>
         <input id="inputCompany" class="inline-input" type="text" placeholder="your company" autocomplete="off" />
         <span id="idTail">?</span>
       </div>
-      <div class="id-hint" id="idHint">Tap a name to fix it</div>
     </div>
     <div class="btn-row">
       <button class="btn-ghost" id="btnIdBack">Back</button>
@@ -394,16 +393,14 @@ $("btnStylize").addEventListener("click", async () => {
   stopProgress();
   $("inputName").value = data.name || "";
   $("inputCompany").value = data.company || "";
-  // Recognized -> "Is [name] from [company]?"; not recognized -> "You're [..]"
+  // Recognized -> "Is this [name] from [company]?"; not recognized -> "You're [..]"
   // with empty blanks they fill in. Either way the blanks edit inline.
   if (data.name) {
-    $("idLead").textContent = "Is";
+    $("idLead").textContent = "Is this";
     $("idTail").textContent = "?";
-    $("idHint").textContent = "Not you? Tap a name to fix it";
   } else {
     $("idLead").textContent = "You're";
     $("idTail").textContent = "";
-    $("idHint").textContent = "Tap the blanks to enter your details";
   }
   autosize($("inputName"));
   autosize($("inputCompany"));

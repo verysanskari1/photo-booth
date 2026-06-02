@@ -125,34 +125,48 @@ def _draw_builtin_base():
     return base
 
 
-def _draw_verse(base, name, lines):
-    """Draw the rhyming couplet + name attribution centered in the verse box.
+def _wrap(draw, text, font, max_w):
+    """Greedy word-wrap `text` to fit `max_w` at the given font."""
+    words, out, cur = text.split(), [], ""
+    for w in words:
+        trial = (cur + " " + w).strip()
+        if draw.textlength(trial, font=font) <= max_w or not cur:
+            cur = trial
+        else:
+            out.append(cur)
+            cur = w
+    if cur:
+        out.append(cur)
+    return out
 
-    Bigger Kalice serif, tighter line spacing (no big gaps), name beneath.
-    """
+
+def _draw_verse(base, name, lines):
+    """Draw the rhyming couplet + name attribution, wrapped and auto-fit so it
+    always stays inside the verse box (never clips at the edges)."""
     draw = ImageDraw.Draw(base)
     bx, by, bw, bh = VERSE_BOX
     cx = bx + bw // 2
-
+    max_w = bw - 24
+    name_gap = 26
+    name_h = 40
     lines = [ln for ln in lines if ln]
 
-    # Auto-fit: shrink the verse until the widest line fits the box width.
-    max_w = bw - 24
+    # Find the largest size at which the wrapped couplet + name fits the box.
     verse_size = 52
-    while verse_size > 26:
+    while verse_size >= 24:
         verse_font = _serif(verse_size)
-        widest = max((draw.textlength(ln, font=verse_font) for ln in lines), default=0)
-        if widest <= max_w:
+        wrapped = []
+        for ln in lines:
+            wrapped += _wrap(draw, ln, verse_font, max_w)
+        line_gap = int(verse_size * 1.2)
+        block_h = len(wrapped) * line_gap + name_gap + name_h
+        if block_h <= bh - 16:
             break
         verse_size -= 2
 
     name_font = _sans(30, bold=True)
-    line_gap = int(verse_size * 1.18)        # tight, proportional spacing
-    name_gap = 28
-
-    block_h = len(lines) * line_gap + name_gap + 34
-    ty = by + max(14, (bh - block_h) // 2)
-    for ln in lines:
+    ty = by + max(12, (bh - block_h) // 2)
+    for ln in wrapped:
         _center(draw, cx, ty, ln, verse_font, WHITE)
         ty += line_gap
     if name:
