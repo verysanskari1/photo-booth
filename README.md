@@ -188,6 +188,36 @@ Event-day runbook:
 > included; use a box with ≥2 GB RAM), but you'd still need a local machine for
 > the printer, so it's not worth it for a single event.
 
+### Printing to the DS620A (Phase 7, macOS)
+
+The strip prints through the Mac's print system (CUPS). The **Print** button asks
+the backend to send the strip straight to the printer; if that fails it falls
+back to the browser print dialog.
+
+One-time setup at the booth:
+1. Install the DNP DS620A driver and add the printer in **System Settings →
+   Printers**. Confirm it prints a test page.
+2. Find its queue name and media options:
+   ```bash
+   lpstat -p                      # queue names
+   lpoptions -p <NAME> -l         # media / PageSize choices (look for 2x6 / strip)
+   ```
+3. Put these in `backend/.env`:
+   ```bash
+   PRINTER_NAME=DS620A            # the queue name from lpstat
+   PRINT_MEDIA=...                # the 2x6 / strip PageSize from lpoptions (if needed)
+   PRINT_COPIES=1
+   ```
+4. Restart `./start.sh`. Visit `/printers` (e.g. http://localhost:8000/printers)
+   to confirm the backend sees the queue.
+
+Notes:
+- DNP does 2×6 strips by printing a 6×4 sheet of two strips that the cutter
+  splits; that behavior is controlled by the **driver/media setting**, so pick
+  the right `PRINT_MEDIA` (or set it as the queue default in System Settings).
+- Set `PRINT_ENABLED=0` to disable hardware printing during testing (the UI then
+  just opens the browser dialog).
+
 ### Exposing over https (camera needs https or localhost)
 
 For a quick tunnel during testing or a laptop-at-venue setup:
@@ -212,4 +242,7 @@ they're same-origin and you can leave `BACKEND_URL` empty.)
 - **Phase 5 — Face recognition against attendee DB** ✅
 - **Phase 6 — Personalized couplet via LLM (OpenRouter)** ✅
 - **Phase 3 — Easy-run (.env + start.sh), https/ngrok + hosting notes** ✅
-- Phase 7 — DNP DS620A dye-sub strip printing (send the strip to the printer)
+- **Phase 7 — DNP DS620A dye-sub strip printing via CUPS (macOS)** ✅
+
+All phases complete. Remaining work is venue setup (printer driver, ngrok) and
+dropping in your real fonts / strip artwork.

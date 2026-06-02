@@ -45,6 +45,7 @@ from fastapi.staticfiles import StaticFiles
 
 import couplet
 import faces
+import printing
 import strip as strip_module
 
 import pipeline
@@ -211,6 +212,30 @@ async def generate_strip(
         "name": display_name,
         "couplet": couplet_lines,
     })
+
+
+@app.get("/printers")
+def printers():
+    """Diagnostics: what print queues are visible and how printing is configured."""
+    return JSONResponse(printing.list_printers())
+
+
+@app.post("/print")
+async def print_strip(filename: str = Form(...)):
+    """Send an already-generated strip (by filename) to the DS620A via CUPS.
+
+    The frontend passes the basename of the result image. We only ever print
+    files from the outputs folder.
+    """
+    name = Path(filename).name  # strip any path components for safety
+    target = OUTPUT_DIR / name
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"No such output: {name}")
+    try:
+        job = printing.print_image(target)
+        return JSONResponse({"ok": True, "job": job})
+    except Exception as exc:  # noqa: BLE001 - report so the UI can fall back
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=200)
 
 
 # ---------------------------------------------------------------------------

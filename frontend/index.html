@@ -472,6 +472,7 @@ async function makeStrip(blob, name, company) {
     stopLoadingMessages();
     stopProgress();
     $("resultImg").src = data.image_url;
+    lastResultFile = (data.image_url || "").split("/").pop();  // basename for /print
     show("result");
   } catch (err) {
     stopLoadingMessages();
@@ -488,19 +489,42 @@ function showError(msg) {
 /* ====================================================================== *
  *  Print
  * ====================================================================== */
-$("btnPrint").addEventListener("click", () => {
-  const url = $("resultImg").src;
-  if (!url) return;
+let lastResultFile = "";
 
-  // --- Simple version: open the image in a new tab and print it. ---------
-  // PHASE 7 HOOK: replace this with a call to a dedicated backend print
-  // endpoint (e.g. POST /print {image_url}) that sends the 2x6" strip to the
-  // DNP DS620A dye-sub printer via the OS print system. Leave this fallback
-  // for non-event / preview use.
+// Primary: ask the backend to send the strip straight to the DS620A (CUPS).
+// Fallback: if the backend can't print (no printer / disabled / offline), open
+// the browser print dialog so you can still get a copy.
+$("btnPrint").addEventListener("click", async () => {
+  const btn = $("btnPrint");
+  const original = btn.textContent;
+  if (lastResultFile) {
+    btn.textContent = "Sending to Printer";
+    btn.disabled = true;
+    try {
+      const form = new FormData();
+      form.append("filename", lastResultFile);
+      const res = await fetch(BACKEND_URL + "/print", { method: "POST", body: form });
+      const data = await res.json();
+      if (data.ok) {
+        btn.textContent = "Sent to Printer";
+        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2500);
+        return;
+      }
+      console.warn("Backend print failed, falling back to browser:", data.error);
+    } catch (e) {
+      console.warn("Print request failed, falling back to browser:", e);
+    }
+    btn.textContent = original;
+    btn.disabled = false;
+  }
+  browserPrint($("resultImg").src);
+});
+
+// Browser print fallback: open the strip and size the page to its aspect ratio.
+function browserPrint(url) {
+  if (!url) return;
   const w = window.open("", "_blank");
-  if (!w) { alert("Allow pop-ups to print."); return; }
-  // We size the print PAGE to match the image's aspect ratio (capped at 6in)
-  // so there's no white space around it when saving/printing.
+  if (!w) { alert("Allow pop-ups to print, or set up the DS620A printer."); return; }
   w.document.write(
     '<html><head><title>Print</title>' +
     '<style>html,body{margin:0;height:100%}' +
@@ -511,7 +535,7 @@ $("btnPrint").addEventListener("click", () => {
   const img = w.document.getElementById("p");
   img.onload = function () {
     const ar = img.naturalWidth / img.naturalHeight;
-    let win = 6, hin = 6;            // max 6in on the long side
+    let win = 6, hin = 6;
     if (ar >= 1) { hin = 6 / ar; } else { win = 6 * ar; }
     const style = w.document.createElement("style");
     style.textContent = "@page{size:" + win.toFixed(2) + "in " + hin.toFixed(2) + "in;margin:0}";
@@ -519,7 +543,7 @@ $("btnPrint").addEventListener("click", () => {
     w.focus();
     w.print();
   };
-});
+}
 
 /* ====================================================================== *
  *  Boot
