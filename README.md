@@ -158,19 +158,35 @@ the server on http://localhost:8000. No `export` or `source` needed each time.
 
 ## Hosting it for the event (and "do I need a laptop?")
 
-**Key point:** the iPad only runs the *web page*. All the heavy work — fal calls,
-face recognition, the strip — runs on the **backend**. So the question is just:
-where does the backend run?
+**Recommendation: yes, run it on one laptop at the venue (connected to the
+printer), exposed via ngrok.** The deciding factor is the **DS620A dye-sub
+printer** — it's USB and must be physically attached to a computer at the event,
+so a computer has to be there regardless. Since that machine is already present,
+run everything on it; cloud hosting would only add a second moving part for no
+benefit at this scale.
 
-- **Hosted in the cloud (recommended for the event):** deploy the backend once to
-  a small always-on server. Then on event day you only need the **iPad + internet**
-  — open the hosted URL and go. **No laptop at the venue.** Face recognition runs
-  on the server. A `Dockerfile` is included so it deploys to most platforms.
-  InsightFace needs ~1–2 GB RAM, so pick a box with ≥2 GB (free tiers are often
-  too small).
-- **One laptop at the venue:** run `./start.sh` on a laptop and expose it over
-  https with a tunnel (below). The iPad talks to the laptop. Works offline-ish,
-  but the laptop must stay on and on the same network/tunnel.
+```
+[iPad: Chrome] --https via ngrok--> [Laptop at booth: ./start.sh]
+                                      ├─ fal.ai          (needs internet)
+                                      ├─ face recognition (local, InsightFace)
+                                      ├─ strip generation (local)
+                                      └─ DS620A printer   (USB, local)
+```
+
+Event-day runbook:
+1. Use a **Mac** at the booth if possible (best DS620A drivers + clean printing).
+2. `cd backend && ./start.sh` (keys already in `.env`).
+3. `ngrok http 8000` → copy the https URL.
+4. Put that URL in `.env` as `PUBLIC_HOST`, restart `start.sh`.
+5. Open the ngrok https URL in **iPad Chrome**. Camera works because it's https.
+6. **Internet is the only hard dependency** (fal + couplet). Bring a **phone
+   hotspot** as backup; venue wifi is the usual point of failure.
+7. Pre-warm before doors open: take one test photo so the InsightFace model is
+   already downloaded/loaded and the first guest isn't slow.
+
+> Prefer no laptop at all? You can cloud-host the backend (a `Dockerfile` is
+> included; use a box with ≥2 GB RAM), but you'd still need a local machine for
+> the printer, so it's not worth it for a single event.
 
 ### Exposing over https (camera needs https or localhost)
 
