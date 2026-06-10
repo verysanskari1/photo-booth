@@ -444,7 +444,10 @@ $("btnMakeStrip").addEventListener("click", () => {
 $("btnNew").addEventListener("click", resetToCamera);
 $("btnErrorRetry").addEventListener("click", resetToCamera);
 
+let sentResetTimer = null;
+
 function resetToCamera() {
+  clearTimeout(sentResetTimer);
   capturedBlob = null;
   $("resultImg").src = "";
   $("inputName").value = "";
@@ -457,12 +460,15 @@ function resetToCamera() {
   show("camera");
 }
 
-// Friendly confirmation after the strip is sent off to the (offsite) printer.
+// Friendly confirmation after the strip is sent off to the (offsite) printer,
+// then auto-reset to the camera for the next guest (hands-free).
 function showSentMessage(name) {
   const who = name ? name.split(" ")[0] : "";
   const hi = who ? ("All set, " + who + "! ") : "All set! ";
   $("sentMsg").innerHTML = hi + "Your strip is printing — <b>collect it just outside the booth.</b>";
   $("sentMsg").style.display = "block";
+  clearTimeout(sentResetTimer);
+  sentResetTimer = setTimeout(resetToCamera, 7000);   // back to camera in 7s
 }
 
 /* ====================================================================== *
