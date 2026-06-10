@@ -196,16 +196,19 @@
   .inline-input:focus { border-bottom-style: solid; border-bottom-color: var(--neon); }
   .id-hint { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-top: 18px; text-align: center; }
 
-  /* ---- Result strip (tall) ------------------------------------------- */
-  .strip-wrap { flex: 1; display: flex; align-items: center; justify-content: center;
-                width: 100%; min-height: 0; }
+  /* ---- Result: the two strips shown as separate tilted cards --------- */
+  .strip-wrap { flex: 1; display: flex; gap: 20px; align-items: center; justify-content: center;
+                width: 100%; min-height: 0; padding: 6px 0; }
+  .strip-card {
+    height: 100%; max-height: 76vh; aspect-ratio: 1 / 3;
+    background-size: 200% 100%; background-repeat: no-repeat;
+    border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.55);
+  }
+  #cardA { background-position: left center;  transform: rotate(-2.5deg); }
+  #cardB { background-position: right center; transform: rotate(2.5deg); }
   .sent-msg { font-family: var(--serif); font-size: 22px; color: var(--white);
               text-align: center; max-width: 560px; margin: 8px auto 0; line-height: 1.35; }
   .sent-msg b { color: var(--neon); font-family: var(--sans); font-weight: 700; }
-  .strip-wrap img {
-    max-height: 100%; max-width: 86%; width: auto; height: auto;
-    border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.5); object-fit: contain;
-  }
 </style>
 </head>
 <body>
@@ -270,11 +273,13 @@
     <div class="progress-pct" id="progressPct">0%</div>
   </section>
 
-  <!-- SCREEN 4: result (tall photo strip) -->
+  <!-- SCREEN 4: result (two strips as separate cards) -->
   <section id="screen-result" class="screen">
     <div class="strip-wrap">
-      <img id="resultImg" alt="Your photo strip" />
+      <div class="strip-card" id="cardA"></div>
+      <div class="strip-card" id="cardB"></div>
     </div>
+    <img id="resultImg" alt="Your photo strip" style="display:none;" />
     <div id="sentMsg" class="sent-msg" style="display:none;"></div>
     <div class="btn-row">
       <button class="btn-ghost" id="btnNew">Start Over</button>
@@ -450,6 +455,8 @@ function resetToCamera() {
   clearTimeout(sentResetTimer);
   capturedBlob = null;
   $("resultImg").src = "";
+  $("cardA").style.backgroundImage = "";
+  $("cardB").style.backgroundImage = "";
   $("inputName").value = "";
   $("inputCompany").value = "";
   // Reset the result screen's print state for the next guest.
@@ -540,6 +547,9 @@ async function makeStrip(blob, name, company) {
     stopLoadingMessages();
     stopProgress();
     $("resultImg").src = data.image_url;
+    // Show the 4x6 as two separate strip cards (left half / right half).
+    $("cardA").style.backgroundImage = "url('" + data.image_url + "')";
+    $("cardB").style.backgroundImage = "url('" + data.image_url + "')";
     lastResultFile = (data.image_url || "").split("/").pop();  // basename for /print
     show("result");
   } catch (err) {
