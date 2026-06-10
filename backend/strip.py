@@ -225,19 +225,40 @@ def _pick(*candidates):
     return None
 
 
-def build_print(cut1: Image.Image, cut2: Image.Image, name: str, lines: list[str]) -> Image.Image:
-    """Assemble the 4x6 (1200x1800): two strip variations side by side.
+def _colorfulness(path) -> float:
+    """Mean saturation of a template (0=grayscale ... 255=vivid)."""
+    im = Image.open(path).convert("RGB").resize((60, 180)).convert("HSV")
+    s = im.split()[1]
+    data = list(s.getdata())
+    return sum(data) / max(1, len(data))
 
-    Left = colored subject on template A; right = the same subject desaturated on
-    template B. The two strips sit flush so a 2-inch cutter splits them cleanly.
+
+def build_print(cut1: Image.Image, cut2: Image.Image, name: str, lines: list[str]) -> Image.Image:
+    """Assemble the 4x6 (1200x1800): two strip variations side by side, flush so a
+    2-inch cutter splits them cleanly.
+
+    For contrast we cross subject and background: the COLORED background gets the
+    B/W subject, and the B/W background gets the COLORED subject. Which template
+    is which is detected automatically (by saturation), so filenames don't matter.
+    Left strip = colored subject on b/w bg; right strip = b/w subject on colored bg.
     """
     ta = _pick(STRIP_TEMPLATE_A, STRIP_TEMPLATE)
     tb = _pick(STRIP_TEMPLATE_B, STRIP_TEMPLATE)
 
-    strip_a = _build_one_strip(ta, cut1, cut2, name, lines, desaturate=False)
-    strip_b = _build_one_strip(tb, cut1, cut2, name, lines, desaturate=True)
+    if ta and tb and ta != tb:
+        # Decide which template is the colorful one and which is grayscale.
+        if _colorfulness(ta) >= _colorfulness(tb):
+            color_t, bw_t = ta, tb
+        else:
+            color_t, bw_t = tb, ta
+        left = _build_one_strip(bw_t, cut1, cut2, name, lines, desaturate=False)    # colored subj / b&w bg
+        right = _build_one_strip(color_t, cut1, cut2, name, lines, desaturate=True)  # b&w subj / colored bg
+    else:
+        # Single (or no) template: keep one colored + one desaturated.
+        left = _build_one_strip(ta, cut1, cut2, name, lines, desaturate=False)
+        right = _build_one_strip(tb, cut1, cut2, name, lines, desaturate=True)
 
     sheet = Image.new("RGB", (STRIP_W * 2, STRIP_H), BLACK)
-    sheet.paste(strip_a, (0, 0))
-    sheet.paste(strip_b, (STRIP_W, 0))
+    sheet.paste(left, (0, 0))
+    sheet.paste(right, (STRIP_W, 0))
     return sheet
