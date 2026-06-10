@@ -277,7 +277,6 @@
   <section id="screen-loading" class="screen">
     <div class="spinner"></div>
     <div class="loading-title" id="loadingTitle">Generating your AI portrait</div>
-    <div class="loading-sub" id="loadingSub">AI is reimagining your photo</div>
     <div id="loadingMsg">Warming up the model</div>
     <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
     <div class="progress-pct" id="progressPct">0%</div>
@@ -407,7 +406,6 @@ $("btnRetake").addEventListener("click", () => show("camera"));
 $("btnStylize").addEventListener("click", async () => {
   if (!capturedBlob) { showError("No photo captured."); return; }
   $("loadingTitle").textContent = "Recognizing you";
-  $("loadingSub").textContent = "AI face matching";
   $("loadingMsg").textContent = "Matching your face";
   startProgress(6);            // recognition is quick
   show("loading");
@@ -449,7 +447,6 @@ $("btnIdBack").addEventListener("click", () => show("confirm"));
 $("btnMakeStrip").addEventListener("click", () => {
   if (!capturedBlob) { showError("No photo captured."); return; }
   $("loadingTitle").textContent = "Generating your AI portrait";
-  $("loadingSub").textContent = "AI is reimagining your photo";
   startLoadingMessages();
   startProgress(55);           // two stylizations take a while
   show("loading");
