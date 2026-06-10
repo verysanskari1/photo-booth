@@ -44,6 +44,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import couplet
+import delivery
 import faces
 import printing
 import strip as strip_module
@@ -221,21 +222,41 @@ def printers():
 
 
 @app.post("/print")
-async def print_strip(filename: str = Form(...)):
-    """Send an already-generated strip (by filename) to the DS620A via CUPS.
+async def print_strip(filename: str = Form(...), name: str = Form("")):
+    """Send a finished strip to the printer.
 
-    The frontend passes the basename of the result image. We only ever print
-    files from the outputs folder.
+    Two delivery paths, both attempted:
+      1. Copy into the synced DRIVE_FOLDER, so a remote/offsite printer can pick
+         it up (the main path for an offsite printer).
+      2. Print on a locally-attached printer via CUPS, if one is configured.
+
+    Returns ok=True if either worked. If neither is set up, ok=False and the
+    frontend falls back to the browser print dialog.
     """
-    name = Path(filename).name  # strip any path components for safety
-    target = OUTPUT_DIR / name
+    fname = Path(filename).name  # strip path components for safety
+    target = OUTPUT_DIR / fname
     if not target.exists():
-        raise HTTPException(status_code=404, detail=f"No such output: {name}")
+        raise HTTPException(status_code=404, detail=f"No such output: {fname}")
+
+    result = {"ok": False, "drive": None, "job": None, "errors": []}
+
+    # 1. Drop into the synced drive folder for the remote printer.
     try:
-        job = printing.print_image(target)
-        return JSONResponse({"ok": True, "job": job})
-    except Exception as exc:  # noqa: BLE001 - report so the UI can fall back
-        return JSONResponse({"ok": False, "error": str(exc)}, status_code=200)
+        dest = delivery.deliver(target, name)
+        if dest:
+            result["drive"] = dest
+            result["ok"] = True
+    except Exception as exc:  # noqa: BLE001
+        result["errors"].append(f"drive: {exc}")
+
+    # 2. Also try a locally-attached printer, if configured/available.
+    try:
+        result["job"] = printing.print_image(target)
+        result["ok"] = True
+    except Exception as exc:  # noqa: BLE001
+        result["errors"].append(f"printer: {exc}")
+
+    return JSONResponse(result)
 
 
 # ---------------------------------------------------------------------------

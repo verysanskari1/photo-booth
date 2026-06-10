@@ -188,7 +188,23 @@ Event-day runbook:
 > included; use a box with ≥2 GB RAM), but you'd still need a local machine for
 > the printer, so it's not worth it for a single event.
 
-### Printing to the DS620A (Phase 7, macOS)
+### Offsite printing via a synced Drive folder
+
+If the printer lives somewhere else (not attached to the booth Mac), use a synced
+folder as the hand-off:
+
+1. Install **Google Drive for Desktop** (or Dropbox) on the booth Mac and sign in.
+2. Make a folder inside it, e.g. `My Drive/Photobooth`.
+3. Set `DRIVE_FOLDER` in `backend/.env` to that folder's full local path.
+4. Tapping **Send to Print** copies the strip there (named `Name_YYYYMMDD_HHMMSS.png`);
+   it syncs to the cloud, and the remote print station prints from the same Drive
+   folder (manually, or with a hot-folder auto-print tool).
+
+This needs no API keys. The **Send to Print** button uses this *and* a local
+printer if one is configured; if neither is set up it falls back to the browser
+print dialog.
+
+### Printing to a LOCALLY attached DS620A (Phase 7, macOS)
 
 The strip prints through the Mac's print system (CUPS). The **Print** button asks
 the backend to send the strip straight to the printer; if that fails it falls
