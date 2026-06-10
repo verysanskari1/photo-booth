@@ -26,11 +26,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 BACKEND_DIR = Path(__file__).resolve().parent
 _FONT_DIRS = [BACKEND_DIR / "fonts", BACKEND_DIR.parent / "frontend" / "fonts"]
+
+# Strip background artwork. The 4x6 holds TWO variations side by side:
+#   A (left): colored subject on template A's background
+#   B (right): the SAME subject desaturated (b/w) on template B's background
+# Drop your two designs at these paths (600x1800 each). A single strip_template.png
+# is used for both if the _a/_b files are absent; built-in art if none exist.
 STRIP_TEMPLATE = BACKEND_DIR / "strip_template.png"
+STRIP_TEMPLATE_A = BACKEND_DIR / "strip_template_a.png"
+STRIP_TEMPLATE_B = BACKEND_DIR / "strip_template_b.png"
 
 STRIP_W, STRIP_H = 600, 1800
 HEADER_H = 170
@@ -173,18 +181,63 @@ def _draw_verse(base, name, lines):
         _center(draw, cx, ty + name_gap, name, name_font, NEON)
 
 
-def build_strip(pose1: Image.Image, pose2: Image.Image, name: str, lines: list[str]) -> Image.Image:
-    """Compose the full strip. `lines` is the (3-line) verse."""
-    if STRIP_TEMPLATE.exists():
-        print("[strip] using template:", STRIP_TEMPLATE.name)
-        base = Image.open(STRIP_TEMPLATE).convert("RGB").resize((STRIP_W, STRIP_H), Image.LANCZOS)
+def _place_cutout(base, cutout, box, desaturate=False):
+    """Paste a transparent subject cutout into `box`, filling the box height and
+    centered horizontally (bottom-anchored), so the template's artwork shows
+    around it. `desaturate` renders the subject in black and white."""
+    bx, by, bw, bh = box
+    cut = cutout.convert("RGBA")
+    bbox = cut.getchannel("A").getbbox()
+    if bbox:
+        cut = cut.crop(bbox)
+
+    if desaturate:
+        r, g, b, a = cut.split()
+        gray = ImageOps.grayscale(cut)            # L
+        cut = Image.merge("RGBA", (gray, gray, gray, a))
+
+    cw, ch = cut.size
+    scale = bh / ch
+    nw, nh = max(1, int(cw * scale)), bh
+    cut = cut.resize((nw, nh), Image.LANCZOS)
+
+    x = bx + (bw - nw) // 2                        # center; may overflow box width
+    y = by                                         # fills full box height
+    base.paste(cut, (x, y), cut)                   # alpha mask = cut
+
+
+def _build_one_strip(template_path, cut1, cut2, name, lines, desaturate=False):
+    """Build a single 600x1800 strip on the given background template."""
+    if template_path and Path(template_path).exists():
+        base = Image.open(template_path).convert("RGB").resize((STRIP_W, STRIP_H), Image.LANCZOS)
     else:
         base = _draw_builtin_base()
-
-    # Paste the two photos into their boxes.
-    base.paste(_fit_box(pose1, PHOTO_TOP_BOX), (PHOTO_TOP_BOX[0], PHOTO_TOP_BOX[1]))
-    base.paste(_fit_box(pose2, PHOTO_BOT_BOX), (PHOTO_BOT_BOX[0], PHOTO_BOT_BOX[1]))
-
-    # Draw the verse + name.
+    _place_cutout(base, cut1, PHOTO_TOP_BOX, desaturate)
+    _place_cutout(base, cut2, PHOTO_BOT_BOX, desaturate)
     _draw_verse(base, name, lines)
     return base
+
+
+def _pick(*candidates):
+    for c in candidates:
+        if c and Path(c).exists():
+            return c
+    return None
+
+
+def build_print(cut1: Image.Image, cut2: Image.Image, name: str, lines: list[str]) -> Image.Image:
+    """Assemble the 4x6 (1200x1800): two strip variations side by side.
+
+    Left = colored subject on template A; right = the same subject desaturated on
+    template B. The two strips sit flush so a 2-inch cutter splits them cleanly.
+    """
+    ta = _pick(STRIP_TEMPLATE_A, STRIP_TEMPLATE)
+    tb = _pick(STRIP_TEMPLATE_B, STRIP_TEMPLATE)
+
+    strip_a = _build_one_strip(ta, cut1, cut2, name, lines, desaturate=False)
+    strip_b = _build_one_strip(tb, cut1, cut2, name, lines, desaturate=True)
+
+    sheet = Image.new("RGB", (STRIP_W * 2, STRIP_H), BLACK)
+    sheet.paste(strip_a, (0, 0))
+    sheet.paste(strip_b, (STRIP_W, 0))
+    return sheet

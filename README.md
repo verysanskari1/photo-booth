@@ -108,16 +108,29 @@ immediately; drop in one reference headshot per real attendee + edit
 `attendees.csv` (`image,name,company`), then **restart the backend**. If
 InsightFace isn't installed or no face matches, the guest just types their name.
 
-### Custom strip artwork (optional)
+### Custom strip artwork (two-variation 4×6)
 
-By default the strip is drawn with a clean built-in design. To use your own full
-artwork, drop a **`backend/strip_template.png`** (fit to 600×1800). The booth uses
-it as the base and only pastes the two photos + verse into these regions, so
-leave them clear in your design (coordinates in `strip.py`):
+The output is a **4×6 (1200×1800)** holding **two 2×6 strips side by side** that a
+2-inch cutter splits. The two strips are variations of the same person:
+
+- **Left** = colored (brand) subject on **template A**
+- **Right** = the *same* subject **desaturated (b/w)** on **template B**
+
+Drop your two background designs (600×1800 each):
+
+- `backend/strip_template_a.png`  (e.g. b/w background)
+- `backend/strip_template_b.png`  (e.g. pink background)
+
+(A single `backend/strip_template.png` is used for both if the _a/_b files are
+absent; a built-in design is used if none exist.) The subject cutouts and verse
+are placed into these regions, so leave them clear in your art:
 
 - top photo:    x0 y170, 600×600
 - verse block:  x40 y770, 520×300  (light text + neon name drawn here)
 - bottom photo: x0 y1070, 600×600
+
+The second strip's b/w look is a local filter on the same AI portraits, so there
+is **no extra fal cost** for the second variation.
 
 ### Fonts (Kalice + Satoshi)
 

@@ -334,20 +334,28 @@ POSE_VARIANTS = [
 ]
 
 
+def generate_cutout(
+    photo_path: str | Path, seed: int | None = None, extra_prompt: str = ""
+) -> Image.Image:
+    """Run stylize -> remove bg -> (ascii) and RETURN the transparent cutout,
+    cropped tight to the subject. The strip pastes this onto a template so the
+    template's artwork shows as the background behind the subject."""
+    stylized_url = stylize(photo_path, seed=seed, extra_prompt=extra_prompt)
+    cutout_url = remove_background(stylized_url)
+    cutout = _download_image(cutout_url).convert("RGBA")
+    if ASCII_RENDER:
+        cutout = asciify(cutout)
+    bbox = cutout.getchannel("A").getbbox()
+    if bbox:
+        cutout = cutout.crop(bbox)
+    return cutout
+
+
 def generate_portrait(
     photo_path: str | Path, seed: int | None = None, extra_prompt: str = ""
 ) -> Image.Image:
-    """Run stylize -> remove bg -> (ascii) -> composite and RETURN the image.
-
-    This is the reusable core. The strip calls it twice (two poses); the single
-    -image endpoint / CLI call it once and then save.
-    """
-    stylized_url = stylize(photo_path, seed=seed, extra_prompt=extra_prompt)
-    cutout_url = remove_background(stylized_url)
-    cutout = _download_image(cutout_url)
-    if ASCII_RENDER:
-        cutout = asciify(cutout)
-    return composite(cutout)
+    """Cutout composited onto the fixed my_background.png (single-image endpoint)."""
+    return composite(generate_cutout(photo_path, seed=seed, extra_prompt=extra_prompt))
 
 
 def run_pipeline(photo_path: str | Path, output_path: str | Path, seed: int | None = None) -> Path:

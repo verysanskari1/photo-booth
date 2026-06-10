@@ -188,19 +188,17 @@ async def generate_strip(
     Two stylized poses (top + bottom) + a personalized couplet block with the
     guest's name in the middle. Returns {image_url, name, couplet}.
     """
-    if not pipeline.BACKGROUND_PATH.exists():
-        raise HTTPException(status_code=500, detail="Missing my_background.png (see README).")
-
     job_id, upload_path = await _save_upload(photo)
     output_path = OUTPUT_DIR / f"{job_id}_strip.png"
 
     try:
-        # Two poses — each is a full stylize -> cutout -> composite.
-        pose1 = pipeline.generate_portrait(upload_path, seed=1, extra_prompt=pipeline.POSE_VARIANTS[0])
-        pose2 = pipeline.generate_portrait(upload_path, seed=2, extra_prompt=pipeline.POSE_VARIANTS[1])
+        # Two poses as transparent cutouts (the template provides the background).
+        cut1 = pipeline.generate_cutout(upload_path, seed=1, extra_prompt=pipeline.POSE_VARIANTS[0])
+        cut2 = pipeline.generate_cutout(upload_path, seed=2, extra_prompt=pipeline.POSE_VARIANTS[1])
         couplet_lines = couplet.make_couplet(name, company or None)
         display_name = (name or "").strip() or "Innovator"
-        strip_img = strip_module.build_strip(pose1, pose2, display_name, couplet_lines)
+        # 4x6 = two strip variations (colored + b/w) side by side.
+        strip_img = strip_module.build_print(cut1, cut2, display_name, couplet_lines)
         strip_img.save(output_path, "PNG")
     except Exception as exc:  # noqa: BLE001
         import traceback
