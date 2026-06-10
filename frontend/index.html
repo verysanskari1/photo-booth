@@ -592,6 +592,7 @@ $("btnPrint").addEventListener("click", async () => {
       const form = new FormData();
       form.append("filename", lastResultFile);
       form.append("name", $("inputName").value.trim());
+      form.append("company", $("inputCompany").value.trim());
       const res = await fetch(BACKEND_URL + "/print", { method: "POST", body: form });
       const data = await res.json();
       if (data.ok) {

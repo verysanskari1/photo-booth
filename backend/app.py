@@ -219,11 +219,16 @@ async def generate_strip(
 
     try:
         couplet_lines = build_strip_file(upload_path, name, company, output_path)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - one full retry before giving up
         import traceback
 
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Strip generation failed: {exc}") from exc
+        print("[strip] generation failed, retrying once...")
+        try:
+            couplet_lines = build_strip_file(upload_path, name, company, output_path)
+        except Exception as exc2:  # noqa: BLE001
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Strip generation failed: {exc2}") from exc2
 
     return JSONResponse({
         "image_url": f"{PUBLIC_HOST}/outputs/{output_path.name}",
@@ -239,7 +244,7 @@ def printers():
 
 
 @app.post("/print")
-async def print_strip(filename: str = Form(...), name: str = Form("")):
+async def print_strip(filename: str = Form(...), name: str = Form(""), company: str = Form("")):
     """Send a finished strip to the printer.
 
     Two delivery paths, both attempted:
@@ -259,7 +264,7 @@ async def print_strip(filename: str = Form(...), name: str = Form("")):
 
     # 1. Drop into the synced drive folder for the remote printer.
     try:
-        dest = delivery.deliver(target, name)
+        dest = delivery.deliver(target, name, company)
         if dest:
             result["drive"] = dest
             result["ok"] = True
@@ -314,7 +319,7 @@ def _cli():
         couplet_lines = build_strip_file(args.restrip, args.name, args.company, out)
         # Also drop it into the delivery folder if configured.
         try:
-            dest = delivery.deliver(out, args.name)
+            dest = delivery.deliver(out, args.name, args.company)
             if dest:
                 print("Delivered to:", dest)
         except Exception as exc:  # noqa: BLE001

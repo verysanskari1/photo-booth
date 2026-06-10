@@ -13,24 +13,46 @@ No API keys, no credentials — it's just a file copy into a synced directory.
 
 from __future__ import annotations
 
-import datetime
 import os
 import re
 import shutil
 from pathlib import Path
 
+BACKEND_DIR = Path(__file__).resolve().parent
 DRIVE_FOLDER = os.environ.get("DRIVE_FOLDER", "").strip()
+_COUNTER_FILE = BACKEND_DIR / "delivery_counter.txt"
 
 
 def enabled() -> bool:
     return bool(DRIVE_FOLDER)
 
 
-def deliver(src_path: str | Path, name: str = "") -> str | None:
-    """Copy the strip into the synced folder under a readable filename.
+def _next_seq() -> int:
+    """Monotonic delivery number, persisted so it survives restarts."""
+    n = 0
+    try:
+        n = int(_COUNTER_FILE.read_text().strip())
+    except Exception:  # noqa: BLE001
+        n = 0
+    n += 1
+    try:
+        _COUNTER_FILE.write_text(str(n))
+    except Exception:  # noqa: BLE001
+        pass
+    return n
 
+
+def _clean(s: str) -> str:
+    """Make a string safe for a filename while staying readable."""
+    s = re.sub(r'[\\/:*?"<>|]+', " ", s or "").strip()
+    return re.sub(r"\s+", " ", s)
+
+
+def deliver(src_path: str | Path, name: str = "", company: str = "") -> str | None:
+    """Copy the strip into the synced folder named '<N> - Name - Company.png'.
+
+    The running number makes the files easy to sort, search, and reprint.
     Returns the destination path, or None if DRIVE_FOLDER isn't configured.
-    Raises on a real copy failure so the caller can report it.
     """
     if not DRIVE_FOLDER:
         return None
@@ -38,9 +60,11 @@ def deliver(src_path: str | Path, name: str = "") -> str | None:
     dest_dir = Path(DRIVE_FOLDER).expanduser()
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    safe = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_") or "guest"
-    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    dest = dest_dir / f"{safe}_{stamp}.png"
+    n = _next_seq()
+    nm = _clean(name) or "Guest"
+    co = _clean(company)
+    label = f"{n} - {nm} - {co}" if co else f"{n} - {nm}"
+    dest = dest_dir / f"{label}.png"
 
     shutil.copy2(src_path, dest)
     print("[delivery] copied strip to drive folder:", dest)

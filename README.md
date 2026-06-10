@@ -201,6 +201,25 @@ Event-day runbook:
 > included; use a box with ≥2 GB RAM), but you'd still need a local machine for
 > the printer, so it's not worth it for a single event.
 
+### Recovery & re-running a guest
+
+The booth is built to not lose anyone:
+
+- **Every capture is saved** to `backend/uploads/<job_id>.<ext>`, with a sidecar
+  `backend/uploads/<job_id>.json` holding that guest's name + company.
+- **fal calls auto-retry** 3× with backoff, and the whole strip retries once more
+  on a hard failure before the error screen shows.
+- If a guest still needs a redo, **re-run from the saved photo**:
+  ```bash
+  cd backend && source .venv/bin/activate
+  python app.py --restrip uploads/<job_id>.jpg --name "Full Name" --company "Company"
+  ```
+  This rebuilds the 4×6 to `outputs/restrip_result.png` and drops it into the
+  Drive folder for printing.
+
+Delivered files are named **`N - Name - Company.png`** (running number) so they're
+easy to sort, search, and reprint at the print station.
+
 ### Offsite printing via a synced Drive folder
 
 If the printer lives somewhere else (not attached to the booth Mac), use a synced

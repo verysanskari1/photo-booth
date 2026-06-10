@@ -7,6 +7,7 @@ venv/
 # Runtime artifacts — generated per guest, not source
 backend/uploads/
 backend/outputs/
+backend/delivery_counter.txt
 
 # Optional brand fonts you drop in locally (licensed separately)
 backend/fonts/
