@@ -88,6 +88,7 @@
 
   /* ---- Header --------------------------------------------------------- */
   header { text-align: center; padding: 34px 24px 10px; z-index: 2; }
+  header .logo { max-height: 52px; max-width: 78%; width: auto; margin: 0 auto 14px; display: block; }
   header .eyebrow {
     font-family: var(--sans); font-weight: 700; letter-spacing: .14em;
     font-size: 14px; color: var(--neon); margin-bottom: 10px;
@@ -151,7 +152,9 @@
     font-family: var(--sans); font-weight: 500; font-size: 19px;
     color: var(--muted); min-height: 26px; text-align: center; max-width: 460px;
   }
-  .loading-title { font-family: var(--serif); font-size: 32px; margin-bottom: 8px; color: var(--white); }
+  .loading-title { font-family: var(--serif); font-size: 32px; margin-bottom: 4px; color: var(--white); }
+  .loading-sub { font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: .12em;
+                 text-transform: uppercase; color: var(--neon); margin-bottom: 22px; }
   .progress {
     width: min(420px, 70vw); height: 8px; margin-top: 26px;
     background: rgba(255,255,255,.10); border-radius: 999px; overflow: hidden;
@@ -208,8 +211,12 @@
   <span class="bracket bl"></span><span class="bracket br"></span>
 
   <header>
-    <div class="eyebrow">HackerRank &nbsp;×&nbsp; ET HRWorld</div>
-    <h1>Innovator Awards<br />Photobooth</h1>
+    <!-- Drop your lockup at frontend/logo.png (or .svg). If it's missing, the
+         text fallback below is shown automatically. -->
+    <img id="brandLogo" class="logo" src="/static/logo.png" alt="HackerRank x ET HRWorld"
+         onerror="this.style.display='none';document.getElementById('brandEyebrow').style.display='block';" />
+    <div class="eyebrow" id="brandEyebrow" style="display:none;">HackerRank &nbsp;×&nbsp; ET HRWorld</div>
+    <h1>Innovator Awards</h1>
   </header>
 
   <!-- SCREEN 1: live camera -->
@@ -253,8 +260,9 @@
   <!-- SCREEN 3: loading -->
   <section id="screen-loading" class="screen">
     <div class="spinner"></div>
-    <div class="loading-title" id="loadingTitle">Making magic</div>
-    <div id="loadingMsg">Warming up the pixels</div>
+    <div class="loading-title" id="loadingTitle">Generating your AI portrait</div>
+    <div class="loading-sub" id="loadingSub">AI is reimagining your photo</div>
+    <div id="loadingMsg">Warming up the model</div>
     <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
     <div class="progress-pct" id="progressPct">0%</div>
   </section>
@@ -265,8 +273,8 @@
       <img id="resultImg" alt="Your photo strip" />
     </div>
     <div class="btn-row">
-      <button class="btn-ghost" id="btnNew">New</button>
-      <button class="btn-primary" id="btnPrint">Print</button>
+      <button class="btn-ghost" id="btnNew">Start Over</button>
+      <button class="btn-primary" id="btnPrint">Send to Print</button>
     </div>
   </section>
 
@@ -379,7 +387,8 @@ $("btnRetake").addEventListener("click", () => show("camera"));
 // as two sequential steps so neither feels like one long hang.
 $("btnStylize").addEventListener("click", async () => {
   if (!capturedBlob) { showError("No photo captured."); return; }
-  $("loadingTitle").textContent = "Looking you up";
+  $("loadingTitle").textContent = "Recognizing you";
+  $("loadingSub").textContent = "AI face matching";
   $("loadingMsg").textContent = "Matching your face";
   startProgress(6);            // recognition is quick
   show("loading");
@@ -420,7 +429,8 @@ $("btnIdBack").addEventListener("click", () => show("confirm"));
 // Print My Strip -> build the two-pose strip with the confirmed name.
 $("btnMakeStrip").addEventListener("click", () => {
   if (!capturedBlob) { showError("No photo captured."); return; }
-  $("loadingTitle").textContent = "Making magic";
+  $("loadingTitle").textContent = "Generating your AI portrait";
+  $("loadingSub").textContent = "AI is reimagining your photo";
   startLoadingMessages();
   startProgress(55);           // two stylizations take a while
   show("loading");
@@ -442,14 +452,12 @@ function resetToCamera() {
  *  Loading: rolling status words + a progress bar
  * ====================================================================== */
 const LOADING_MESSAGES = [
-  "Tokenizing",
-  "Clauding",
-  "Thinking",
-  "Innovating",
+  "AI is studying your photo",
+  "Generating your portrait",
   "Dithering the shadows",
   "Mixing indigo and magenta",
   "Crosshatching highlights",
-  "Composing your couplet",
+  "Writing your couplet",
   "Cutting you from the background",
   "Placing you on the stage",
   "Rendering your strip",
@@ -535,7 +543,7 @@ $("btnPrint").addEventListener("click", async () => {
   const btn = $("btnPrint");
   const original = btn.textContent;
   if (lastResultFile) {
-    btn.textContent = "Sending to Printer";
+    btn.textContent = "Sending";
     btn.disabled = true;
     try {
       const form = new FormData();
@@ -543,8 +551,8 @@ $("btnPrint").addEventListener("click", async () => {
       const res = await fetch(BACKEND_URL + "/print", { method: "POST", body: form });
       const data = await res.json();
       if (data.ok) {
-        btn.textContent = "Sent to Printer";
-        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2500);
+        btn.textContent = "Sent to Print";
+        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 3000);
         return;
       }
       console.warn("Backend print failed, falling back to browser:", data.error);
