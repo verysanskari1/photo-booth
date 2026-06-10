@@ -324,8 +324,9 @@ def _download_image(url: str) -> Image.Image:
 # photos a bit of variety. (nano-banana preserves pose somewhat, so these are
 # gentle nudges rather than guarantees.)
 POSE_VARIANTS = [
-    "POSE A: a formal straight-on headshot, facing the camera directly, shoulders "
-    "square and level, calm confident closed-mouth smile.",
+    "POSE A: a confident editorial hero shot. Slight low camera angle looking up "
+    "at the subject, chin lifted, shoulders back and squared, strong direct eye "
+    "contact with the camera, powerful and self-assured. Bold magazine-cover energy.",
     "POSE B: a distinctly different artistic editorial portrait. Turn the head and "
     "shoulders to a three-quarter / side-profile angle (about 35 to 50 degrees "
     "away from camera), chin slightly up, gaze toward the camera over the shoulder, "
