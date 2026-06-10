@@ -24,10 +24,25 @@ library automatically — we never hard-code it.
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import fal_client
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+
+def _subscribe(model: str, arguments: dict, attempts: int = 3):
+    """Call fal with a few retries so a transient hiccup doesn't fail a guest."""
+    last = None
+    for i in range(attempts):
+        try:
+            return fal_client.subscribe(model, arguments=arguments)
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            wait = 2 * (i + 1)
+            print(f"[fal] {model} attempt {i + 1}/{attempts} failed: {exc} (retrying in {wait}s)")
+            time.sleep(wait)
+    raise RuntimeError(f"fal call to {model} failed after {attempts} attempts: {last}")
 
 # ---------------------------------------------------------------------------
 # Configuration / constants
@@ -140,7 +155,7 @@ def stylize(photo_path: str | Path, seed: int | None = None, extra_prompt: str =
     if seed is not None:
         arguments["seed"] = seed
 
-    result = fal_client.subscribe(STYLIZE_MODEL, arguments=arguments)
+    result = _subscribe(STYLIZE_MODEL, arguments)
     stylized_url = result["images"][0]["url"]
     print("      -> stylized image:", stylized_url)
     return stylized_url
@@ -157,9 +172,9 @@ def remove_background(image_url: str) -> str:
     """
     print("[2/3] Removing background via", REMOVE_BG_MODEL, "...")
 
-    result = fal_client.subscribe(
+    result = _subscribe(
         REMOVE_BG_MODEL,
-        arguments={
+        {
             "image_url": image_url,
             "model": "Portrait",
             "refine_foreground": True,

@@ -24,6 +24,7 @@ Two ways to run it:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import uuid
@@ -159,6 +160,21 @@ async def _save_upload(photo: UploadFile) -> tuple[str, Path]:
     return job_id, path
 
 
+def build_strip_file(photo_path, name: str, company: str, output_path) -> list[str]:
+    """Run the full strip pipeline on a saved photo and write the 4x6 PNG.
+
+    Reusable by the web endpoint and the CLI re-run. Returns the couplet lines.
+    """
+    cut1 = pipeline.generate_cutout(photo_path, seed=1, extra_prompt=pipeline.POSE_VARIANTS[0])
+    cut2 = pipeline.generate_cutout(photo_path, seed=2, extra_prompt=pipeline.POSE_VARIANTS[1])
+    couplet_lines = couplet.make_couplet(name, company or None)
+    display_name = (name or "").strip() or "Innovator"
+    strip_img = strip_module.build_print(cut1, cut2, display_name, couplet_lines)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    strip_img.save(output_path, "PNG")
+    return couplet_lines
+
+
 @app.post("/identify")
 async def identify(photo: UploadFile = File(...)):
     """Run face recognition on the captured photo (Phase 5).
@@ -191,15 +207,18 @@ async def generate_strip(
     job_id, upload_path = await _save_upload(photo)
     output_path = OUTPUT_DIR / f"{job_id}_strip.png"
 
+    # Save a sidecar so any photo can be re-run later (operator recovery).
+    display_name = (name or "").strip() or "Innovator"
     try:
-        # Two poses as transparent cutouts (the template provides the background).
-        cut1 = pipeline.generate_cutout(upload_path, seed=1, extra_prompt=pipeline.POSE_VARIANTS[0])
-        cut2 = pipeline.generate_cutout(upload_path, seed=2, extra_prompt=pipeline.POSE_VARIANTS[1])
-        couplet_lines = couplet.make_couplet(name, company or None)
-        display_name = (name or "").strip() or "Innovator"
-        # 4x6 = two strip variations (colored + b/w) side by side.
-        strip_img = strip_module.build_print(cut1, cut2, display_name, couplet_lines)
-        strip_img.save(output_path, "PNG")
+        (UPLOAD_DIR / f"{job_id}.json").write_text(
+            json.dumps({"job_id": job_id, "photo": upload_path.name,
+                        "name": name, "company": company})
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        couplet_lines = build_strip_file(upload_path, name, company, output_path)
     except Exception as exc:  # noqa: BLE001
         import traceback
 
@@ -262,18 +281,21 @@ async def print_strip(filename: str = Form(...), name: str = Form("")):
 # ---------------------------------------------------------------------------
 
 def _cli():
-    parser = argparse.ArgumentParser(description="Photobooth pipeline test runner")
-    parser.add_argument("--test", metavar="IMAGE", help="run the pipeline on a local image file")
+    parser = argparse.ArgumentParser(description="Photobooth pipeline / re-run tool")
+    parser.add_argument("--test", metavar="IMAGE", help="single-image pipeline test (composited on my_background)")
+    parser.add_argument("--restrip", metavar="IMAGE", help="re-run the full 4x6 strip from a saved photo")
+    parser.add_argument("--name", default="", help="guest name (for --restrip)")
+    parser.add_argument("--company", default="", help="guest company (for --restrip)")
     parser.add_argument(
         "--out",
         metavar="PATH",
         default=str(OUTPUT_DIR / "test_result.png"),
-        help="where to write the result (default: outputs/test_result.png)",
+        help="where to write the result",
     )
-    parser.add_argument("--seed", type=int, default=None, help="optional stylize seed")
+    parser.add_argument("--seed", type=int, default=None, help="optional stylize seed (for --test)")
     args = parser.parse_args()
 
-    if not args.test:
+    if not args.test and not args.restrip:
         parser.print_help()
         sys.exit(0)
 
@@ -281,12 +303,27 @@ def _cli():
         print("ERROR: FAL_KEY environment variable is not set.", file=sys.stderr)
         sys.exit(1)
 
-    if not Path(args.test).exists():
-        print(f"ERROR: image not found: {args.test}", file=sys.stderr)
+    image = args.restrip or args.test
+    if not Path(image).exists():
+        print(f"ERROR: image not found: {image}", file=sys.stderr)
         sys.exit(1)
 
-    out = pipeline.run_pipeline(args.test, args.out, seed=args.seed)
-    print(f"\nDone. Open {out} to see the result.")
+    if args.restrip:
+        # Re-run the full 4x6 strip (e.g. recover a failed guest from uploads/).
+        out = args.out if args.out != str(OUTPUT_DIR / "test_result.png") else str(OUTPUT_DIR / "restrip_result.png")
+        couplet_lines = build_strip_file(args.restrip, args.name, args.company, out)
+        # Also drop it into the delivery folder if configured.
+        try:
+            dest = delivery.deliver(out, args.name)
+            if dest:
+                print("Delivered to:", dest)
+        except Exception as exc:  # noqa: BLE001
+            print("Delivery skipped:", exc)
+        print("Couplet:", couplet_lines)
+        print(f"\nDone. Open {out} to see the 4x6 strip.")
+    else:
+        out = pipeline.run_pipeline(args.test, args.out, seed=args.seed)
+        print(f"\nDone. Open {out} to see the result.")
 
 
 if __name__ == "__main__":
