@@ -195,11 +195,12 @@
   .inline-input {
     font-family: var(--serif); font-size: inherit; color: var(--neon);
     background: transparent; border: none; border-bottom: 2px dashed rgba(185,232,79,.5);
-    outline: none; text-align: center; padding: 0 4px; min-width: 2ch;
+    outline: none; text-align: center; padding: 0 4px; min-width: 2ch; max-width: 90%;
   }
   .inline-input::placeholder { color: var(--muted); opacity: .7; }
   .inline-input:focus { border-bottom-style: solid; border-bottom-color: var(--neon); }
   .id-hint { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-top: 18px; text-align: center; }
+  .id-warn { font-family: var(--sans); font-size: 14px; color: #ffd24d; margin-top: 16px; text-align: center; display: none; }
 
   /* ---- Result: the two strips shown as separate tilted cards --------- */
   .strip-wrap { flex: 1; display: flex; gap: 20px; align-items: center; justify-content: center;
@@ -245,10 +246,13 @@
     button { font-size: 18px; padding: 16px 22px; }
     .btn-capture { font-size: 20px; padding: 20px; }
 
-    /* Result: shorter strips + tighter message so buttons stay on screen. */
-    .strip-wrap { gap: 14px; }
-    .strip-card { max-height: 46vh; }
-    .sent-msg { font-size: 17px; margin-top: 4px; }
+    /* Result: bigger strips; buttons beside them so they can be large. */
+    .strip-wrap { gap: 16px; }
+    #screen-result.screen { flex-direction: row; gap: 26px; }
+    #screen-result .strip-wrap { flex: 0 1 auto; }
+    #screen-result .btn-row { flex-direction: column; width: auto; max-width: 230px; }
+    .strip-card { max-height: 82vh; }
+    .sent-msg { font-size: 16px; margin-top: 4px; max-width: 230px; }
     .id-card { padding: 18px 22px; }
     .id-sentence { font-size: clamp(22px, 3.2vw, 32px); line-height: 1.35; }
   }
@@ -294,11 +298,12 @@
     <div class="id-card">
       <div class="id-sentence">
         <span id="idLead">Is this</span>
-        <input id="inputName" class="inline-input" type="text" placeholder="your name" autocomplete="off" />
+        <input id="inputName" class="inline-input" type="text" placeholder="your name" autocomplete="off" maxlength="40" />
         <span class="id-word">from</span>
-        <input id="inputCompany" class="inline-input" type="text" placeholder="your company" autocomplete="off" />
+        <input id="inputCompany" class="inline-input" type="text" placeholder="your company" autocomplete="off" maxlength="40" />
         <span id="idTail">?</span>
       </div>
+      <div class="id-warn" id="idWarn">Please enter your name and company.</div>
     </div>
     <div class="btn-row">
       <button class="btn-ghost" id="btnIdBack">Back</button>
@@ -463,27 +468,37 @@ $("btnStylize").addEventListener("click", async () => {
   }
   autosize($("inputName"));
   autosize($("inputCompany"));
+  $("idWarn").style.display = "none";
   show("identify");
 });
 
-// Make the inline inputs grow/shrink to fit their text (or placeholder).
+// Make the inline inputs grow/shrink to fit their text, capped so a long name
+// can never blow out the layout (it scrolls within the field instead).
 function autosize(el) {
   const len = (el.value || el.placeholder || "").length;
-  el.size = Math.max(len + 1, 4);
+  el.size = Math.min(Math.max(len + 1, 4), 26);
 }
-$("inputName").addEventListener("input", (e) => autosize(e.target));
-$("inputCompany").addEventListener("input", (e) => autosize(e.target));
+$("inputName").addEventListener("input", (e) => { autosize(e.target); $("idWarn").style.display = "none"; });
+$("inputCompany").addEventListener("input", (e) => { autosize(e.target); $("idWarn").style.display = "none"; });
 
 $("btnIdBack").addEventListener("click", () => show("confirm"));
 
 // Print My Strip -> build the two-pose strip with the confirmed name.
 $("btnMakeStrip").addEventListener("click", () => {
   if (!capturedBlob) { showError("No photo captured."); return; }
+  const name = $("inputName").value.trim();
+  const company = $("inputCompany").value.trim();
+  // Require both before proceeding.
+  if (!name || !company) {
+    $("idWarn").style.display = "block";
+    (!name ? $("inputName") : $("inputCompany")).focus();
+    return;
+  }
   $("loadingTitle").textContent = "Generating your AI portrait";
   startLoadingMessages();
   startProgress(55);           // two stylizations take a while
   show("loading");
-  makeStrip(capturedBlob, $("inputName").value.trim(), $("inputCompany").value.trim());
+  makeStrip(capturedBlob, name, company);
 });
 
 $("btnNew").addEventListener("click", resetToCamera);
