@@ -19,7 +19,19 @@ import shutil
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent
-DRIVE_FOLDER = os.environ.get("DRIVE_FOLDER", "").strip()
+
+
+def _clean_folder(raw: str) -> str:
+    """Tolerate common .env paste mistakes: shell-escaped spaces (`My\\ Drive`)
+    and stray surrounding quotes."""
+    raw = (raw or "").strip()
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
+        raw = raw[1:-1]
+    raw = raw.replace("\\ ", " ")   # un-escape shell-style spaces
+    return raw.strip()
+
+
+DRIVE_FOLDER = _clean_folder(os.environ.get("DRIVE_FOLDER", ""))
 _COUNTER_FILE = BACKEND_DIR / "delivery_counter.txt"
 
 

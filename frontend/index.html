@@ -227,23 +227,30 @@
 
   /* ---- Landscape (iPad held horizontally) ---------------------------- */
   @media (orientation: landscape) {
-    header { padding: 12px 24px 2px; }
-    header .logo { max-height: 24px; margin-bottom: 6px; }
-    header h1 { font-size: clamp(24px, 4.2vw, 40px); }
-    header .eyebrow { font-size: 12px; margin-bottom: 6px; }
-    .screen { padding: 6px 28px 16px; }
+    header { padding: 8px 24px 2px; }
+    header .logo { max-height: 22px; margin-bottom: 4px; }
+    header h1 { font-size: clamp(22px, 3.6vw, 34px); }
+    header .eyebrow { font-size: 11px; margin-bottom: 4px; }
+    .screen { padding: 4px 28px 12px; overflow-y: auto; }
 
     /* Camera + confirm: media on one side, controls beside it. */
-    #screen-camera.screen, #screen-confirm.screen { flex-direction: row; gap: 30px; }
+    #screen-camera.screen, #screen-confirm.screen { flex-direction: row; gap: 28px; }
     #screen-camera .btn-row, #screen-confirm .btn-row {
-      flex-direction: column; width: auto; max-width: 240px;
+      flex-direction: column; width: auto; max-width: 230px;
     }
 
     /* Square media sized to the (short) landscape height. */
-    .frame { width: min(66vh, 48vw); padding-top: min(66vh, 48vw); }
+    .frame { width: min(56vh, 44vw); padding-top: min(56vh, 44vw); }
 
-    /* Result strips a touch shorter so the buttons fit under them. */
-    .strip-card { max-height: 60vh; }
+    button { font-size: 18px; padding: 16px 22px; }
+    .btn-capture { font-size: 20px; padding: 20px; }
+
+    /* Result: shorter strips + tighter message so buttons stay on screen. */
+    .strip-wrap { gap: 14px; }
+    .strip-card { max-height: 46vh; }
+    .sent-msg { font-size: 17px; margin-top: 4px; }
+    .id-card { padding: 18px 22px; }
+    .id-sentence { font-size: clamp(22px, 3.2vw, 32px); line-height: 1.35; }
   }
 </style>
 </head>
