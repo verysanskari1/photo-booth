@@ -239,8 +239,12 @@ async def generate_strip(
 
 @app.get("/printers")
 def printers():
-    """Diagnostics: what print queues are visible and how printing is configured."""
-    return JSONResponse(printing.list_printers())
+    """Diagnostics: print queues + whether the Drive delivery folder is set up."""
+    info = printing.list_printers()
+    folder = delivery.DRIVE_FOLDER
+    info["drive_folder"] = folder or "(not set)"
+    info["drive_folder_exists"] = bool(folder) and Path(folder).expanduser().is_dir()
+    return JSONResponse(info)
 
 
 @app.post("/print")

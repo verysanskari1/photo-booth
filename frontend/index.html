@@ -4,6 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Innovator Awards Photobooth</title>
+<!-- Full-screen kiosk mode: "Add to Home Screen" on the iPad launches this with
+     no Safari address bar (hides the ngrok URL, looks professional). -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Innovator Awards" />
 
 <!-- Satoshi (sans) from Fontshare. Kalice (serif) isn't on a public CDN, so we
      @font-face it from /static/fonts/Kalice.woff2 if you drop the file there,
@@ -601,61 +606,37 @@ function showError(msg) {
  * ====================================================================== */
 let lastResultFile = "";
 
-// Primary: ask the backend to send the strip straight to the DS620A (CUPS).
-// Fallback: if the backend can't print (no printer / disabled / offline), open
-// the browser print dialog so you can still get a copy.
+// Send the finished strip to the backend, which copies it to the Drive folder
+// (and/or a local printer). No browser-print popup on the iPad: if it can't be
+// sent, we show a clean "ask the host" message right on the result screen.
 $("btnPrint").addEventListener("click", async () => {
   const btn = $("btnPrint");
   const original = btn.textContent;
-  if (lastResultFile) {
-    btn.textContent = "Sending";
-    btn.disabled = true;
-    try {
-      const form = new FormData();
-      form.append("filename", lastResultFile);
-      form.append("name", $("inputName").value.trim());
-      form.append("company", $("inputCompany").value.trim());
-      const res = await fetch(BACKEND_URL + "/print", { method: "POST", body: form });
-      const data = await res.json();
-      if (data.ok) {
-        btn.textContent = "Sent ✓";
-        showSentMessage($("inputName").value.trim());
-        return;
-      }
-      console.warn("Backend print failed, falling back to browser:", data.error);
-    } catch (e) {
-      console.warn("Print request failed, falling back to browser:", e);
+  if (!lastResultFile) return;
+  btn.textContent = "Sending";
+  btn.disabled = true;
+  try {
+    const form = new FormData();
+    form.append("filename", lastResultFile);
+    form.append("name", $("inputName").value.trim());
+    form.append("company", $("inputCompany").value.trim());
+    const res = await fetch(BACKEND_URL + "/print", { method: "POST", body: form });
+    const data = await res.json();
+    if (data.ok) {
+      btn.textContent = "Sent ✓";
+      showSentMessage($("inputName").value.trim());
+      return;
     }
-    btn.textContent = original;
-    btn.disabled = false;
+    console.warn("[print] not delivered:", data.errors || data);
+  } catch (e) {
+    console.warn("[print] request failed:", e);
   }
-  browserPrint($("resultImg").src);
+  // Couldn't deliver — tell the guest to ask the host, keep the button to retry.
+  $("sentMsg").innerHTML = "Couldn't send to the printer. <b>Please ask the host.</b>";
+  $("sentMsg").style.display = "block";
+  btn.textContent = original;
+  btn.disabled = false;
 });
-
-// Browser print fallback: open the strip and size the page to its aspect ratio.
-function browserPrint(url) {
-  if (!url) return;
-  const w = window.open("", "_blank");
-  if (!w) { alert("Allow pop-ups to print, or set up the DS620A printer."); return; }
-  w.document.write(
-    '<html><head><title>Print</title>' +
-    '<style>html,body{margin:0;height:100%}' +
-    'img{width:100%;height:100%;object-fit:contain;display:block}</style>' +
-    '</head><body><img id="p" src="' + url + '" /></body></html>'
-  );
-  w.document.close();
-  const img = w.document.getElementById("p");
-  img.onload = function () {
-    const ar = img.naturalWidth / img.naturalHeight;
-    let win = 6, hin = 6;
-    if (ar >= 1) { hin = 6 / ar; } else { win = 6 * ar; }
-    const style = w.document.createElement("style");
-    style.textContent = "@page{size:" + win.toFixed(2) + "in " + hin.toFixed(2) + "in;margin:0}";
-    w.document.head.appendChild(style);
-    w.focus();
-    w.print();
-  };
-}
 
 /* ====================================================================== *
  *  Boot
