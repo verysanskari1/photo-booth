@@ -181,10 +181,13 @@ def _draw_verse(base, name, lines):
         _center(draw, cx, ty + name_gap, name, name_font, NEON)
 
 
-def _place_cutout(base, cutout, box, desaturate=False):
-    """Paste a transparent subject cutout into `box`, filling the box height and
-    centered horizontally (bottom-anchored), so the template's artwork shows
-    around it. `desaturate` renders the subject in black and white."""
+def _place_cutout(base, cutout, box, desaturate=False, zoom=1.0):
+    """Paste a transparent subject cutout into `box`, top-anchored and centered
+    horizontally, so the template's artwork shows around it.
+
+    `desaturate` renders the subject in black and white. `zoom` > 1 scales the
+    subject larger than the box (cropping the lower body) for a tighter close-up.
+    """
     bx, by, bw, bh = box
     cut = cutout.convert("RGBA")
     bbox = cut.getchannel("A").getbbox()
@@ -197,13 +200,23 @@ def _place_cutout(base, cutout, box, desaturate=False):
         cut = Image.merge("RGBA", (gray, gray, gray, a))
 
     cw, ch = cut.size
-    scale = bh / ch
-    nw, nh = max(1, int(cw * scale)), bh
+    nh = int(bh * zoom)
+    scale = nh / ch
+    nw = max(1, int(cw * scale))
     cut = cut.resize((nw, nh), Image.LANCZOS)
 
     x = bx + (bw - nw) // 2                        # center; may overflow box width
-    y = by                                         # fills full box height
-    base.paste(cut, (x, y), cut)                   # alpha mask = cut
+    y = by                                         # top-anchored (keeps the head)
+
+    # Clip to the box so a zoomed-in subject doesn't spill past the photo cell.
+    region = base.crop((bx, by, bx + bw, by + bh)).convert("RGBA")
+    region.alpha_composite(cut, (x - bx, y - by))
+    base.paste(region.convert("RGB"), (bx, by))
+
+
+# How much tighter the bottom photo is cropped vs the top (visual variety even
+# if the AI keeps a similar pose).
+BOTTOM_ZOOM = 1.3
 
 
 def _build_one_strip(template_path, cut1, cut2, name, lines, desaturate=False):
@@ -213,7 +226,7 @@ def _build_one_strip(template_path, cut1, cut2, name, lines, desaturate=False):
     else:
         base = _draw_builtin_base()
     _place_cutout(base, cut1, PHOTO_TOP_BOX, desaturate)
-    _place_cutout(base, cut2, PHOTO_BOT_BOX, desaturate)
+    _place_cutout(base, cut2, PHOTO_BOT_BOX, desaturate, zoom=BOTTOM_ZOOM)
     _draw_verse(base, name, lines)
     return base
 
