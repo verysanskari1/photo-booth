@@ -347,11 +347,11 @@ POSE_VARIANTS = [
     "lift the chin, and direct the gaze UPWARD and into the distance (not at the "
     "camera), confident and aspirational. Slightly low camera angle, dramatic "
     "directional key light, deep contrast, magazine-cover energy.",
-    "POSE B: completely RE-POSE the subject into a dramatic three-quarter editorial "
-    "portrait; this must clearly NOT be a straight-on shot and must look different "
-    "from the input photo. Turn the head and shoulders 40 to 55 degrees to the side "
-    "into a near-profile, chin level, eyes looking back toward the camera over the "
-    "shoulder. Dramatic side key light, deep shadow, fashion-magazine composition.",
+    "POSE B: a flattering three-quarter editorial portrait, clearly NOT a "
+    "straight-on shot. Turn the head and shoulders about 35 to 45 degrees to the "
+    "side, chin slightly up, eyes looking back toward the camera over the "
+    "shoulder, poised and confident. Dramatic side key light, deep shadow, "
+    "fashion-magazine composition.",
 ]
 
 
