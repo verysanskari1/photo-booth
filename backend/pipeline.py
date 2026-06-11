@@ -66,7 +66,9 @@ STYLE_PROMPT = (
     "mid-chest up, with both shoulders and the full upper chest comfortably "
     "inside the frame and a small even margin around the subject so nothing "
     "touches the edges. Do not crop the shoulders, arms, or head. "
-    "Keep the person clearly recognizable. "
+    "Keep the person clearly recognizable, and fully clothed in their exact "
+    "original outfit: never remove, open, undress, or change clothing, and keep "
+    "the collar, chest and shoulders covered. "
     "FULLY and HEAVILY stylize the entire image: this must read as a bold graphic "
     "halftone artwork, NOT a lightly filtered photo. Commit completely to the "
     "texture across the whole face, hair, skin and clothing, with no photographic "
@@ -339,12 +341,9 @@ def _download_image(url: str) -> Image.Image:
 # photos a bit of variety. (nano-banana preserves pose somewhat, so these are
 # gentle nudges rather than guarantees.)
 POSE_VARIANTS = [
-    "POSE A: a striking, heavily stylized editorial hero portrait. Slight low "
-    "camera angle looking up at the subject, chin lifted, shoulders squared, "
-    "strong direct eye contact, powerful and self-assured magazine-cover energy. "
-    "Dramatic hard directional key light from one side with deep falloff shadows "
-    "and high contrast, sculpted cheekbones, cinematic and polished, bold graphic "
-    "halftone rendering everywhere.",
+    "POSE A: a warm, approachable studio portrait. Straight-on, relaxed squared "
+    "shoulders, genuine friendly smile, looking directly at the camera. Soft even "
+    "key light, gentle contrast, inviting.",
     "POSE B: a distinctly different artistic editorial portrait. Turn the head and "
     "shoulders to a three-quarter / side-profile angle (about 35 to 50 degrees "
     "away from camera), chin slightly up, gaze toward the camera over the shoulder, "
