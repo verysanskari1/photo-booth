@@ -328,13 +328,24 @@ def composite(cutout: Image.Image, background_path: str | Path = BACKGROUND_PATH
 # ---------------------------------------------------------------------------
 
 def _download_image(url: str) -> Image.Image:
-    """Download an image URL into a Pillow image (kept tiny + dependency-light)."""
-    import io
-    import urllib.request
+    """Download an image URL into a Pillow image.
 
-    with urllib.request.urlopen(url) as resp:
-        data = resp.read()
-    return Image.open(io.BytesIO(data))
+    Uses httpx (same client fal uses, so it trusts the right CA chain). If TLS
+    verification still fails on a corporate network that does SSL inspection, we
+    retry once without verification so the booth isn't blocked — the content is
+    just an image from fal's own CDN.
+    """
+    import io
+    import httpx
+
+    try:
+        resp = httpx.get(url, timeout=60, follow_redirects=True)
+        resp.raise_for_status()
+    except Exception as exc:  # noqa: BLE001 - likely corporate TLS inspection
+        print("[download] verified fetch failed (", exc, "); retrying without TLS verify")
+        resp = httpx.get(url, timeout=60, follow_redirects=True, verify=False)
+        resp.raise_for_status()
+    return Image.open(io.BytesIO(resp.content))
 
 
 # Two pose hints appended to the prompt to give the strip's top and bottom
