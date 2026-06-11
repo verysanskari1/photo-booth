@@ -567,7 +567,11 @@ async function makeStrip(blob, name, company) {
 }
 
 function showError(msg) {
-  $("errorMsg").textContent = msg;
+  // Guests see a friendly nudge to the host; the real detail goes to the console
+  // for whoever is running the booth.
+  console.error("[photobooth error]", msg);
+  $("errorMsg").textContent =
+    "Please grab a HackerRank team member just outside the booth and they'll get you sorted in a moment.";
   show("error");
 }
 
