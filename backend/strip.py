@@ -24,6 +24,7 @@ No em dashes, no URL (by request).
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
@@ -274,4 +275,22 @@ def build_print(cut1: Image.Image, cut2: Image.Image, name: str, lines: list[str
     sheet = Image.new("RGB", (STRIP_W * 2, STRIP_H), BLACK)
     sheet.paste(left, (0, 0))
     sheet.paste(right, (STRIP_W, 0))
-    return sheet
+    return _apply_safe_margin(sheet)
+
+
+# Fraction of each edge kept as black "bleed" so a borderless dye-sub printer's
+# overscan crops the margin, not the content. Tune with PRINT_SAFE_MARGIN in .env
+# (0 = off). The center cut line stays centered, so the 2-inch cut is unaffected.
+PRINT_SAFE_MARGIN = float(os.environ.get("PRINT_SAFE_MARGIN", "0.04"))
+
+
+def _apply_safe_margin(sheet: Image.Image) -> Image.Image:
+    m = PRINT_SAFE_MARGIN
+    if m <= 0:
+        return sheet
+    w, h = sheet.size
+    cw, ch = int(w * (1 - 2 * m)), int(h * (1 - 2 * m))
+    scaled = sheet.resize((cw, ch), Image.LANCZOS)
+    canvas = Image.new("RGB", (w, h), BLACK)
+    canvas.paste(scaled, ((w - cw) // 2, (h - ch) // 2))
+    return canvas
