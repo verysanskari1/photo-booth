@@ -17,6 +17,7 @@ guest typing their name on the confirm screen.
 from __future__ import annotations
 
 import csv
+import os
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -24,8 +25,10 @@ ATTENDEES_DIR = BACKEND_DIR / "attendees"
 ATTENDEES_CSV = ATTENDEES_DIR / "attendees.csv"
 
 # Cosine-similarity threshold for treating a face as a confident match.
-# buffalo_l: ~0.30 loose, ~0.45 confident. Below this we ask the guest to confirm.
-MATCH_THRESHOLD = 0.42
+# buffalo_l: ~0.30 loose, ~0.45 confident. A booth selfie vs a LinkedIn headshot
+# scores lower than two similar photos, so default fairly permissive. The guest
+# confirms/edits the name anyway. Tune with FACE_MATCH_THRESHOLD in .env.
+MATCH_THRESHOLD = float(os.environ.get("FACE_MATCH_THRESHOLD", "0.34"))
 
 _app = None            # lazily-initialised InsightFace model
 _db: list[dict] = []   # [{name, company, embedding(np.ndarray)}]
@@ -107,8 +110,10 @@ def _load_db():
 def identify(image_path_or_pil) -> dict:
     """Identify the face in the captured photo.
 
-    Returns {"name", "company", "confidence", "matched"}. `matched` is True only
-    when confidence >= MATCH_THRESHOLD. Always safe to call.
+    Matches against both the photo and its mirror (the booth capture is a
+    mirrored selfie, references aren't), and takes the best score. Returns
+    {"name", "company", "confidence", "matched"}; matched only when confidence
+    >= MATCH_THRESHOLD. Always safe to call.
     """
     _try_init()
     result = {"name": "", "company": "", "confidence": 0.0, "matched": False}
@@ -116,18 +121,30 @@ def identify(image_path_or_pil) -> dict:
         return result
 
     import numpy as np
+    from PIL import Image, ImageOps
 
-    emb = _embed(image_path_or_pil)
-    if emb is None:
+    if isinstance(image_path_or_pil, (str, Path)):
+        img = Image.open(image_path_or_pil).convert("RGB")
+    else:
+        img = image_path_or_pil.convert("RGB")
+
+    # Embed the photo and its mirror; match against whichever is closer.
+    queries = [e for e in (_embed(img), _embed(ImageOps.mirror(img))) if e is not None]
+    if not queries:
+        print("[faces] no face detected in the captured photo")
         return result
 
     best, best_score = None, -1.0
     for entry in _db:
-        score = float(np.dot(emb, entry["embedding"]))  # cosine (both normalized)
+        score = max(float(np.dot(q, entry["embedding"])) for q in queries)
         if score > best_score:
             best, best_score = entry, score
 
     result["confidence"] = round(best_score, 3)
-    if best and best_score >= MATCH_THRESHOLD:
+    matched = bool(best) and best_score >= MATCH_THRESHOLD
+    print(f"[faces] best match: {best['name'] if best else '-'} "
+          f"score={best_score:.3f} threshold={MATCH_THRESHOLD} -> "
+          f"{'MATCH' if matched else 'no match'}")
+    if matched:
         result.update(name=best["name"], company=best["company"], matched=True)
     return result
