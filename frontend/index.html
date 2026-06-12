@@ -246,12 +246,14 @@
     button { font-size: 18px; padding: 16px 22px; }
     .btn-capture { font-size: 20px; padding: 20px; }
 
-    /* Result: bigger strips; buttons beside them so they can be large. */
+    /* Result: bigger strips; buttons beside them so they can be large.
+       Cards need a DEFINITE height here (the row parent has no fixed height,
+       so height:100% would collapse them to nothing -> blank). */
     .strip-wrap { gap: 16px; }
     #screen-result.screen { flex-direction: row; gap: 26px; }
     #screen-result .strip-wrap { flex: 0 1 auto; }
     #screen-result .btn-row { flex-direction: column; width: auto; max-width: 230px; }
-    .strip-card { max-height: 82vh; }
+    .strip-card { height: 80vh; max-height: 80vh; }
     .sent-msg { font-size: 16px; margin-top: 4px; max-width: 230px; }
     .id-card { padding: 18px 22px; }
     .id-sentence { font-size: clamp(22px, 3.2vw, 32px); line-height: 1.35; }
