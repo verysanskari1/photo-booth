@@ -285,6 +285,9 @@ def build_print(cut1: Image.Image, cut2: Image.Image, name: str, lines: list[str
 _DEFAULT_M = os.environ.get("PRINT_SAFE_MARGIN", "0.03")
 PRINT_MARGIN_X = float(os.environ.get("PRINT_MARGIN_X", _DEFAULT_M))   # left/right
 PRINT_MARGIN_Y = float(os.environ.get("PRINT_MARGIN_Y", "0.02"))       # top/bottom
+# Horizontal nudge of the content (fraction of width). Negative shifts left, i.e.
+# less black on the left (the extra on the right gets cropped by overscan).
+PRINT_OFFSET_X = float(os.environ.get("PRINT_OFFSET_X", "-0.012"))
 
 
 def _apply_safe_margin(sheet: Image.Image) -> Image.Image:
@@ -295,5 +298,7 @@ def _apply_safe_margin(sheet: Image.Image) -> Image.Image:
     cw, ch = int(w * (1 - 2 * mx)), int(h * (1 - 2 * my))
     scaled = sheet.resize((cw, ch), Image.LANCZOS)
     canvas = Image.new("RGB", (w, h), BLACK)
-    canvas.paste(scaled, ((w - cw) // 2, (h - ch) // 2))
+    x = (w - cw) // 2 + int(PRINT_OFFSET_X * w)
+    x = max(0, min(x, w - cw))                 # keep inside the sheet
+    canvas.paste(scaled, (x, (h - ch) // 2))
     return canvas
