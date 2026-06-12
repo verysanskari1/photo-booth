@@ -171,7 +171,9 @@ def build_strip_file(photo_path, name: str, company: str, output_path) -> list[s
     display_name = (name or "").strip() or "Innovator"
     strip_img = strip_module.build_print(cut1, cut2, display_name, couplet_lines)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    strip_img.save(output_path, "PNG")
+    # Stamp 300 DPI so 1200x1800 px is recognized as exactly 4x6 inches by the
+    # printer software (otherwise it guesses the size and prints wrong).
+    strip_img.save(output_path, "PNG", dpi=(300, 300))
     return couplet_lines
 
 
