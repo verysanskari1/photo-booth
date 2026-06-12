@@ -279,17 +279,20 @@ def build_print(cut1: Image.Image, cut2: Image.Image, name: str, lines: list[str
 
 
 # Fraction of each edge kept as black "bleed" so a borderless dye-sub printer's
-# overscan crops the margin, not the content. Tune with PRINT_SAFE_MARGIN in .env
-# (0 = off). The center cut line stays centered, so the 2-inch cut is unaffected.
-PRINT_SAFE_MARGIN = float(os.environ.get("PRINT_SAFE_MARGIN", "0.04"))
+# overscan crops the margin, not the content. Separate side (X) and top/bottom
+# (Y) values, both tunable in .env. The center cut line stays centered, so the
+# 2-inch cut is unaffected.
+_DEFAULT_M = os.environ.get("PRINT_SAFE_MARGIN", "0.03")
+PRINT_MARGIN_X = float(os.environ.get("PRINT_MARGIN_X", _DEFAULT_M))   # left/right
+PRINT_MARGIN_Y = float(os.environ.get("PRINT_MARGIN_Y", "0.02"))       # top/bottom
 
 
 def _apply_safe_margin(sheet: Image.Image) -> Image.Image:
-    m = PRINT_SAFE_MARGIN
-    if m <= 0:
+    mx, my = PRINT_MARGIN_X, PRINT_MARGIN_Y
+    if mx <= 0 and my <= 0:
         return sheet
     w, h = sheet.size
-    cw, ch = int(w * (1 - 2 * m)), int(h * (1 - 2 * m))
+    cw, ch = int(w * (1 - 2 * mx)), int(h * (1 - 2 * my))
     scaled = sheet.resize((cw, ch), Image.LANCZOS)
     canvas = Image.new("RGB", (w, h), BLACK)
     canvas.paste(scaled, ((w - cw) // 2, (h - ch) // 2))
