@@ -32,6 +32,11 @@ _db: list[dict] = []   # [{name, company, embedding(np.ndarray)}]
 _loaded = False
 
 
+def ensure_loaded():
+    """Public warm-up: build the model + attendee index now (e.g. at startup)."""
+    _try_init()
+
+
 def _try_init():
     """Load the model + attendee embeddings once. Safe to call repeatedly."""
     global _app, _db, _loaded

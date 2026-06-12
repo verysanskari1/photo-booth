@@ -97,6 +97,21 @@ if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
+@app.on_event("startup")
+def _warm_up():
+    """Build the face-recognition index at startup so the first guest isn't slow.
+    With ~50 attendees this takes 30-60s on CPU; watch for the
+    '[faces] loaded N attendee reference face(s).' line."""
+    print("[startup] building attendee face index (this can take 30-60s)...")
+    try:
+        faces.ensure_loaded()
+    except Exception:  # noqa: BLE001 - never block startup on recognition
+        import traceback
+
+        traceback.print_exc()
+    print("[startup] ready.")
+
+
 @app.get("/health")
 def health():
     """Tiny health check so you can confirm the server is up."""
