@@ -162,8 +162,9 @@ async def generate(photo: UploadFile = File(...)):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Pipeline failed: {exc}") from exc
 
-    image_url = f"{PUBLIC_HOST}/outputs/{output_path.name}"
-    return JSONResponse({"image_url": image_url})
+    # Relative URL so it loads from whatever host the page is on (localhost or
+    # ngrok), regardless of PUBLIC_HOST.
+    return JSONResponse({"image_url": f"/outputs/{output_path.name}"})
 
 
 async def _save_upload(photo: UploadFile) -> tuple[str, Path]:
@@ -248,7 +249,7 @@ async def generate_strip(
             raise HTTPException(status_code=500, detail=f"Strip generation failed: {exc2}") from exc2
 
     return JSONResponse({
-        "image_url": f"{PUBLIC_HOST}/outputs/{output_path.name}",
+        "image_url": f"/outputs/{output_path.name}",
         "name": display_name,
         "couplet": couplet_lines,
     })

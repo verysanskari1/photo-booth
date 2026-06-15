@@ -332,6 +332,7 @@
     <div id="sentMsg" class="sent-msg" style="display:none;"></div>
     <div class="btn-row">
       <button class="btn-ghost" id="btnNew">Start Over</button>
+      <button class="btn-ghost" id="btnDownload">Download</button>
       <button class="btn-primary" id="btnPrint">Send to Print</button>
     </div>
   </section>
@@ -505,6 +506,18 @@ $("btnMakeStrip").addEventListener("click", () => {
 
 $("btnNew").addEventListener("click", resetToCamera);
 $("btnErrorRetry").addEventListener("click", resetToCamera);
+
+// Download the finished strip straight from the browser (no folder needed).
+$("btnDownload").addEventListener("click", () => {
+  const src = $("resultImg").src;
+  if (!src) return;
+  const a = document.createElement("a");
+  a.href = src;
+  a.download = lastResultFile || "innovator_strip.png";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
 
 let sentResetTimer = null;
 
